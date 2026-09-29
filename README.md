@@ -161,4 +161,4 @@ python.required = 3.13
 
 * **Author:** Osama Abbas
 * **License:** Apache License 2.0
-* **Issue Tracker & Source:** [GitHub Repository](https://www.google.com/search?q=https://github.com/Tes3awy/TA-cert-monitor)
+* **Issue Tracker & Source:** [GitHub Repository](https://www.google.com/search?q=https://github.com/Tes3awy/splunk-ssl-cert-monitor)
