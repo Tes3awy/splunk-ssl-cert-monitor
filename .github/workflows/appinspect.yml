@@ -1,0 +1,123 @@
+name: Splunk AppInspect CI
+
+on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "TA-cert-monitor/**"
+      - "splunk-app-cert-monitor/**"
+      - ".github/workflows/appinspect.yml"
+  push:
+    branches: [main, master]
+    paths:
+      - "TA-cert-monitor/**"
+      - "splunk-app-cert-monitor/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  appinspect:
+    name: Run AppInspect Linter
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - folder: "TA-cert-monitor"
+            artifact_name: "TA-cert-monitor"
+          - folder: "splunk-app-cert-monitor"
+            artifact_name: "splunk-app-cert-monitor"
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Install System Dependencies (libmagic)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmagic1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install splunk-appinspect
+
+      - name: Clean Temporary & System Artifacts
+        run: |
+          # Purge Python bytecode, macOS metadata, and hidden files that fail AppInspect
+          find ${{ matrix.app.folder }} -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+          find ${{ matrix.app.folder }} -type f -name "*.py[co]" -delete 2>/dev/null || true
+          find ${{ matrix.app.folder }} -type f -name ".DS_Store" -delete 2>/dev/null || true
+
+      - name: Build Package Archive
+        run: |
+          # Create a sanitized tarball with the top-level directory intact
+          tar -czvf ${{ matrix.app.artifact_name }}.tar.gz \
+            --exclude='.git*' \
+            --exclude='*.pyc' \
+            --exclude='__pycache__' \
+            --exclude='.DS_Store' \
+            ${{ matrix.app.folder }}/
+
+      - name: Execute Splunk AppInspect
+        run: |
+          mkdir -p inspect-reports
+
+          # Run inspection in precert mode and output both JSON and plaintext reports
+          splunk-appinspect inspect ${{ matrix.app.artifact_name }}.tar.gz \
+            --mode precert \
+            --included-tags splunk_appinspect \
+            --output-file inspect-reports/${{ matrix.app.artifact_name }}-report.json \
+            --data-format json || true
+
+          splunk-appinspect inspect ${{ matrix.app.artifact_name }}.tar.gz \
+            --mode precert \
+            --included-tags splunk_appinspect \
+            --output-file inspect-reports/${{ matrix.app.artifact_name }}-report.txt \
+            --data-format text || true
+
+          # Print the readable text summary directly to the GitHub Actions job log
+          cat inspect-reports/${{ matrix.app.artifact_name }}-report.txt
+
+      - name: Check for AppInspect Failures
+        run: |
+          python -c '
+          import json, sys
+
+          report_path = "inspect-reports/${{ matrix.app.artifact_name }}-report.json"
+          with open(report_path, "r") as f:
+              data = json.load(f)
+
+          summary = data.get("summary", {})
+          failures = summary.get("failure", 0)
+          errors = summary.get("error", 0)
+          warnings = summary.get("warning", 0)
+          manual_checks = summary.get("manual_check", 0)
+
+          print(f"Results for ${{ matrix.app.artifact_name }}:")
+          print(f" - Failures:      {failures}")
+          print(f" - Errors:        {errors}")
+          print(f" - Warnings:      {warnings}")
+          print(f" - Manual Checks: {manual_checks}")
+
+          if failures > 0 or errors > 0:
+              print("\n[ERROR] AppInspect reported failures or structural errors. Review log above.")
+              sys.exit(1)
+          '
+
+      - name: Upload AppInspect Reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: appinspect-reports-${{ matrix.app.artifact_name }}
+          path: inspect-reports/
+          retention-days: 14

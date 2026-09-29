@@ -1,0 +1,37 @@
+<dashboard version="1.1" theme="dark">
+    <label>SSL / TLS Security Audit</label>
+    <description>Audit weak ciphers, deprecated TLS protocols, and certificate drift.</description>
+
+    <row>
+        <panel>
+            <table>
+                <title>Insecure Protocol &amp; Cipher Audit</title>
+                <search>
+                    <query>
+                        `ssl_cert_index` sourcetype="cert:ssl:json"
+                        | stats latest(ssl_version) as ssl_version,
+                        latest(ssl_cipher) as ssl_cipher,
+                        latest(ssl_issuer) as ssl_issuer,
+                        latest(_time) as last_seen
+                        by dest, dest_port, sni
+                        | search ssl_version IN ("TLSv1", "TLSv1.1", "SSLv2", "SSLv3") OR
+                        ssl_cipher="*RC4*" OR ssl_cipher="*3DES*" OR ssl_cipher="*NULL*"
+                        | eval Target=dest . ":" . dest_port,
+                        last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S UTC")
+                        | table Target, sni, ssl_version, ssl_cipher, ssl_issuer, last_seen
+                        | rename Target as "Endpoint",
+                        sni as "SNI",
+                        ssl_version as "Protocol",
+                        ssl_cipher as "Negotiated Cipher",
+                        ssl_issuer as "Issuer",
+                        last_seen as "Audit Timestamp"
+                    </query>
+                    <earliest>-7d@h</earliest>
+                    <latest>now</latest>
+                </search>
+                <option name="count">20</option>
+                <option name="drilldown">none</option>
+            </table>
+        </panel>
+    </row>
+</dashboard>

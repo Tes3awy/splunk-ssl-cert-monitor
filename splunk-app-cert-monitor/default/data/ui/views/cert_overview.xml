@@ -1,0 +1,222 @@
+<dashboard version="1.1" theme="dark">
+  <label>SSL / TLS Certificate Monitoring &amp; Expiry</label>
+  <description>Operational tracking, renewal countdowns, and TLS protocol audits across managed endpoints.</description>
+
+  <!-- Global Base Search: Deduplicates to the latest check per target/port -->
+  <search id="base_cert_search">
+    <query>
+      `ssl_cert_index` sourcetype="cert:ssl:json"
+      | stats latest(days_remaining) as days_remaining,
+              latest(ssl_subject) as ssl_subject,
+              latest(ssl_issuer) as ssl_issuer,
+              latest(ssl_issuer_common_name) as ssl_issuer_common_name,
+              latest(ssl_version) as ssl_version,
+              latest(ssl_cipher) as ssl_cipher,
+              latest(ssl_end_time) as ssl_end_time,
+              latest(status) as status,
+              latest(_time) as last_checked
+        by dest, dest_port, sni
+      | eval days_remaining=round(days_remaining, 0),
+             ssl_end_date=strftime(ssl_end_time, "%Y-%m-%d %H:%M:%S UTC"),
+             expiry_status=case(
+                days_remaining &lt;= 0 OR status=="EXPIRED", "Expired",
+                days_remaining &lt;= 15, "Critical (&lt;= 15d)",
+                days_remaining &lt;= 30, "Warning (16-30d)",
+                days_remaining &lt;= 60, "Expiring Soon (31-60d)",
+                true(), "Healthy (&gt; 60d)"
+             ),
+             insecure_tls=if(ssl_version IN ("TLSv1", "TLSv1.1", "SSLv2", "SSLv3"), 1, 0)
+    </query>
+    <earliest>-24h@h</earliest>
+    <latest>now</latest>
+    <sampleRatio>1</sampleRatio>
+  </search>
+
+  <!-- Filters / Inputs -->
+  <fieldset submitButton="false" autoRun="true">
+    <input type="dropdown" token="filter_status" searchWhenChanged="true">
+      <label>Expiry Urgency</label>
+      <choice value="*">All Certificates</choice>
+      <choice value="Critical*">Critical (&lt;= 15d)</choice>
+      <choice value="Warning*">Warning (16-30d)</choice>
+      <choice value="Expired">Expired</choice>
+      <choice value="Healthy*">Healthy (&gt; 60d)</choice>
+      <default>*</default>
+    </input>
+    <input type="text" token="filter_dest" searchWhenChanged="true">
+      <label>Filter Host / SNI</label>
+      <default>*</default>
+      <prefix>*</prefix>
+      <suffix>*</suffix>
+    </input>
+  </fieldset>
+
+  <!-- Row 1: Single Value KPI Cards -->
+  <row>
+    <panel>
+      <single>
+        <title>Total Endpoints Monitored</title>
+        <search base="base_cert_search">
+          <query>
+            | stats count
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">none</option>
+        <option name="underLabel">Distinct Host:Port Pairs</option>
+      </single>
+    </panel>
+
+    <panel>
+      <single>
+        <title>Expired Certificates</title>
+        <search base="base_cert_search">
+          <query>
+            | search days_remaining &lt;= 0 OR status="EXPIRED"
+            | stats count
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53a051","0xdc4e41"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="useColors">1</option>
+        <option name="underLabel">Immediate Outage Risk</option>
+      </single>
+    </panel>
+
+    <panel>
+      <single>
+        <title>Critical Expiry (&lt;= 15 Days)</title>
+        <search base="base_cert_search">
+          <query>
+            | search days_remaining &gt; 0 days_remaining &lt;= 15
+            | stats count
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53a051","0xdc4e41"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="useColors">1</option>
+        <option name="underLabel">Urgent Renewal Required</option>
+      </single>
+    </panel>
+
+    <panel>
+      <single>
+        <title>Warning Expiry (16 - 30 Days)</title>
+        <search base="base_cert_search">
+          <query>
+            | search days_remaining &gt; 15 days_remaining &lt;= 30
+            | stats count
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53a051","0xf8be34"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="useColors">1</option>
+        <option name="underLabel">Action within 30 days</option>
+      </single>
+    </panel>
+
+    <panel>
+      <single>
+        <title>Legacy / Weak TLS Versions</title>
+        <search base="base_cert_search">
+          <query>
+            | search insecure_tls=1
+            | stats count
+          </query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53a051","0xdc4e41"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="useColors">1</option>
+        <option name="underLabel">TLS &lt;= 1.1 Detected</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Row 2: Visual Distribution & Timeline -->
+  <row>
+    <panel>
+      <chart>
+        <title>Renewal Countdown Buckets</title>
+        <search base="base_cert_search">
+          <query>
+            | stats count by expiry_status
+          </query>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.axisTitleX.text">Status Category</option>
+        <option name="charting.axisTitleY.text">Certificate Count</option>
+        <option name="charting.fieldColors">{"Expired":0xdc4e41,"Critical (&lt;= 15d)":0xd93f3c,"Warning (16-30d)":0xf8be34,"Expiring Soon (31-60d)":0xf1813f,"Healthy (&gt; 60d)":0x53a051}</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <chart>
+        <title>Top Certificate Authorities (Issuer)</title>
+        <search base="base_cert_search">
+          <query>
+            | stats count by ssl_issuer
+            | sort - count
+            | head 7
+          </query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.05</option>
+      </chart>
+    </panel>
+
+    <panel>
+      <chart>
+        <title>TLS Protocol Adoption</title>
+        <search base="base_cert_search">
+          <query>
+            | stats count by ssl_version
+          </query>
+        </search>
+        <option name="charting.chart">donut</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Row 3: Actionable Inventory Table with Color Highlighting -->
+  <row>
+    <panel>
+      <table>
+        <title>Endpoint Certificate Inventory &amp; Expiry Schedule</title>
+        <search base="base_cert_search">
+          <query>
+            | search (dest="$filter_dest$" OR sni="$filter_dest$") AND expiry_status="$filter_status$"
+            | eval Target=dest . ":" . dest_port
+            | sort days_remaining
+            | table Target, sni, ssl_subject, ssl_issuer, days_remaining, ssl_end_date, ssl_version, ssl_cipher, expiry_status
+            | rename Target as "Endpoint",
+                     sni as "SNI",
+                     ssl_subject as "Subject CN",
+                     ssl_issuer as "Issuer",
+                     days_remaining as "Days Remaining",
+                     ssl_end_date as "Valid Until",
+                     ssl_version as "TLS Version",
+                     ssl_cipher as "Cipher Suite",
+                     expiry_status as "Urgency"
+          </query>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">row</option>
+        <format type="color" field="Days Remaining">
+          <colorPalette type="minMidMax" maxColor="#53A051" midColor="#F8BE34" minColor="#DC4E41"></colorPalette>
+          <scale type="minMidMax" maxMetric="60" midMetric="30" minMetric="0"></scale>
+        </format>
+        <format type="color" field="Urgency">
+          <colorPalette type="map">
+            {"Expired": #DC4E41, "Critical (&lt;= 15d)": #DC4E41, "Warning (16-30d)": #F8BE34, "Expiring Soon (31-60d)": #F1813F, "Healthy (&gt; 60d)": #53A051}
+          </colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+</dashboard>

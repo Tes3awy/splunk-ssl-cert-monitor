@@ -1,0 +1,19 @@
+# Global default permissions for all knowledge objects in this app
+[]
+access = read : [ * ], write : [ admin, sc_admin ]
+export = none
+
+### Views / Dashboards ###
+[views]
+access = read : [ * ], write : [ admin, sc_admin ]
+export = system
+
+### Navigation Bar ###
+[nav]
+access = read : [ * ], write : [ admin, sc_admin ]
+export = none
+
+### Macros ###
+[macros]
+access = read : [ * ], write : [ admin, sc_admin ]
+export = system
