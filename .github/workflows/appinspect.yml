@@ -71,21 +71,15 @@ jobs:
         run: |
           mkdir -p inspect-reports
 
-          # Run inspection in precert mode and output both JSON and plaintext reports
+          splunk-appinspect inspect ${{ matrix.app.artifact_name }}.tar.gz \
+            --mode precert \
+            --included-tags splunk_appinspect || true
+
           splunk-appinspect inspect ${{ matrix.app.artifact_name }}.tar.gz \
             --mode precert \
             --included-tags splunk_appinspect \
             --output-file inspect-reports/${{ matrix.app.artifact_name }}-report.json \
             --data-format json || true
-
-          splunk-appinspect inspect ${{ matrix.app.artifact_name }}.tar.gz \
-            --mode precert \
-            --included-tags splunk_appinspect \
-            --output-file inspect-reports/${{ matrix.app.artifact_name }}-report.txt \
-            --data-format text || true
-
-          # Print the readable text summary directly to the GitHub Actions job log
-          cat inspect-reports/${{ matrix.app.artifact_name }}-report.txt
 
       - name: Check for AppInspect Failures
         run: |
