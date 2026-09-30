@@ -1,3 +1,6 @@
+[![Splunkbase](https://img.shields.io/badge/Splunkbase-TA--cert--monitor-blue.svg)](https://splunkbase.splunk.com/app/9906)
+[![Splunkbase](https://img.shields.io/badge/Splunkbase-splunk--app--cert--monitor-brightgreen.svg)](https://splunkbase.splunk.com/app/9907)
+
 # SSL / TLS Certificate Monitor App & Technology Add-on
 
 Proactively monitor SSL/TLS certificate validity, countdown expiration dates, audit weak ciphers and legacy TLS protocols, and eliminate unplanned web and API outages across your infrastructure.
