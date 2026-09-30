@@ -17,3 +17,8 @@ export = none
 [macros]
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system
+
+### Saved Searches & Pre-packaged Alerts ###
+[savedsearches]
+access = read : [ * ], write : [ admin, sc_admin ]
+export = system

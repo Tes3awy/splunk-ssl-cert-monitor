@@ -10,12 +10,33 @@ import os
 import socket
 import ssl
 import sys
+import tempfile
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
+# 1. Resolve and inject vendored 'lib' BEFORE importing third-party packages
+BIND_DIR = os.path.dirname(os.path.abspath(__file__))
+LIB_DIR = os.path.join(BIND_DIR, "lib")
+if os.path.exists(LIB_DIR) and LIB_DIR not in sys.path:
+    sys.path.insert(0, LIB_DIR)
+
+# 2. Structured logging initialization with graceful fallback
+try:
+    from solnlib import log
+
+    logger = log.Logs().get_logger("ta_cert_monitor")
+except ImportError:
+    import logging
+
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
+    logger = logging.getLogger("ta_cert_monitor")
+
 
 def log_err(message):
-    """Logs errors to splunkd.log with standard log channel format."""
+    """Logs errors to both structured logger and splunkd.log standard channel."""
+    logger.error(message)
     sys.stderr.write(f"ERROR cert_checker: {message}\n")
     sys.stderr.flush()
 
@@ -27,14 +48,13 @@ def is_prohibited_ip(host_str):
     """
     try:
         ip = ipaddress.ip_address(host_str)
-        # ip.is_link_local covers 169.254.0.0/16 (AWS/Azure/GCP metadata) and fe80::/10
         if ip.is_link_local or ip.is_loopback:
             return (
                 True,
                 "Access to link-local, loopback, and cloud metadata addresses is prohibited.",
             )
     except ValueError:
-        # It is a hostname, not an IP string
+        # Target is a hostname, not a raw IP address
         pass
     return False, None
 
@@ -61,9 +81,10 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
     """Connects via TLS handshake, extracts certificate details, and returns a dict."""
     now_utc = datetime.now(timezone.utc)
 
-    # Security: Validate target host against SSRF blacklist
+    # Security: Validate target host against SSRF blocklist
     prohibited, reason = is_prohibited_ip(host)
     if prohibited:
+        logger.warning(f"Blocked connection attempt to prohibited target: {host}")
         return {
             "target_host": host,
             "target_port": port,
@@ -83,11 +104,9 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
     }
 
     try:
-        # Create SSL context based on verification flag
         ctx = ssl.create_default_context()
         if not verify_cert:
-            # AppInspect manual-check justification:
-            # Inspection tool designed to audit expired or untrusted internal PKI certs
+            # Audit mode for internal PKI and staging hosts
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
 
@@ -97,23 +116,30 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
                 cipher_info = ssock.cipher()
                 tls_version = ssock.version()
 
-                # When verify_mode == CERT_NONE, getpeercert() is empty.
-                # In Python 3 standard library, ssl._ssl._test_decode_cert decodes
-                # raw DER certificates into the exact same dict getpeercert() returns.
+                # When verify_mode == CERT_NONE, getpeercert() returns None/empty.
+                # In Python 3, ssl._ssl._test_decode_cert decodes raw DER binary form.
                 if not cert and not verify_cert:
                     der_bytes = ssock.getpeercert(binary_form=True)
                     if der_bytes:
+                        tf_path = None
                         try:
-                            # Decode raw DER using Python's internal OpenSSL parser
-                            import tempfile
-
-                            with tempfile.NamedTemporaryFile(delete=True) as tf:
+                            # delete=False prevents Windows OS file-locking exceptions
+                            with tempfile.NamedTemporaryFile(delete=False) as tf:
                                 tf.write(der_bytes)
                                 tf.flush()
-                                cert = ssl._ssl._test_decode_cert(tf.name)
-                        except Exception:
-                            # Fallback if internal decoder is unavailable
+                                tf_path = tf.name
+                            cert = ssl._ssl._test_decode_cert(tf_path)
+                        except Exception as decode_err:
+                            logger.debug(
+                                f"Could not decode DER cert via OpenSSL helper: {decode_err}"
+                            )
                             cert = {}
+                        finally:
+                            if tf_path and os.path.exists(tf_path):
+                                try:
+                                    os.remove(tf_path)
+                                except OSError:
+                                    pass
 
                 record["tls_version"] = tls_version
                 record["cipher"] = cipher_info[0] if cipher_info else None
@@ -153,15 +179,19 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
     except ssl.SSLCertVerificationError as e:
         record["status"] = "VERIFICATION_FAILED"
         record["error_message"] = str(e)
+        logger.info(f"Certificate verification failed for {host}:{port} ({sni}): {e}")
     except ssl.SSLError as e:
         record["status"] = "TLS_HANDSHAKE_ERROR"
         record["error_message"] = str(e)
+        logger.info(f"TLS handshake error for {host}:{port} ({sni}): {e}")
     except TimeoutError:
         record["status"] = "TIMEOUT"
         record["error_message"] = f"Connection timed out after {timeout}s"
+        logger.info(f"Timeout connecting to {host}:{port} ({sni})")
     except (OSError, ValueError, KeyError, TypeError) as e:
         record["status"] = "CONNECTION_ERROR"
         record["error_message"] = str(e)
+        logger.info(f"Connection error for {host}:{port} ({sni}): {e}")
 
     return record
 
@@ -266,7 +296,6 @@ def validate_arguments():
 
 def print_scheme():
     """Reads introspection XML schema from an external file and prints to stdout."""
-    # Resolve the absolute path relative to this script file
     script_dir = os.path.dirname(os.path.abspath(__file__))
     scheme_path = os.path.join(script_dir, "scheme.xml")
 

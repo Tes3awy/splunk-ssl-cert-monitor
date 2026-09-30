@@ -1,0 +1,22 @@
+<form class="form-horizontal form-complex">
+    <div class="control-group">
+        <label class="control-label" for="cert_alert_webhook_url">Webhook URL</label>
+        <div class="controls">
+            <input type="text" name="action.cert_alert_webhook.param.webhook_url" id="cert_alert_webhook_url"
+                placeholder="https://hooks.slack.com/... or https://api.opsgenie.com/..." class="input-xlarge" />
+            <span class="help-block">Target endpoint. Must begin with <code>https://</code>.</span>
+        </div>
+    </div>
+
+    <div class="control-group">
+        <label class="control-label" for="cert_alert_severity">Severity Override</label>
+        <div class="controls">
+            <select name="action.cert_alert_webhook.param.severity" id="cert_alert_severity">
+                <option value="critical" selected="selected">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+            </select>
+        </div>
+    </div>
+</form>

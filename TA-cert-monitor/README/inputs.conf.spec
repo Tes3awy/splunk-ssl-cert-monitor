@@ -1,17 +1,26 @@
 [cert_checker://<name>]
-* Monitors and extracts SSL/TLS certificate metadata and expiration.
+* Modular input for monitoring SSL/TLS certificates and endpoints.
 
-target_host = <value>
-* The hostname or IP address of the remote target.
+python.version = <string>
+* Python interpreter version to run the input script (e.g. python3).
 
-port = <value>
-* Target port (defaults to 443 if omitted).
+python.required = <string>
+* Target Python version for Splunk Cloud compatibility (e.g. 3.13).
 
-sni = <value>
-* Server Name Indication (SNI) string. If omitted, target_host is used.
+interval = <string>
+* How often to execute the check, in seconds or as a cron schedule string.
 
-timeout = <value>
-* Socket connection timeout in seconds (default: 10).
+target_host = <string>
+* Target hostname or IP address to connect to.
 
-verify_cert = <value>
-* Whether to verify CA signature (true/false, default: true). Set false for self-signed or internal CA endpoints.
+port = <integer>
+* Port number to connect to (default: 443).
+
+sni = <string>
+* Server Name Indication (SNI) hostname. Defaults to target_host if not specified.
+
+timeout = <number>
+* Socket timeout in seconds (default: 10).
+
+verify_cert = <boolean>
+* Whether to verify the SSL certificate chain (true/false).

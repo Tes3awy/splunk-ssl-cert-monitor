@@ -16,3 +16,8 @@ export = system
 [props]
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system
+
+### Modular Alert Actions ###
+[alert_actions]
+access = read : [ * ], write : [ admin, sc_admin ]
+export = system

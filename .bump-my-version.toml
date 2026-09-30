@@ -1,0 +1,37 @@
+[tool.bumpversion]
+current_version = "1.1.0"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+tag = true
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Release v{new_version}"
+commit = true
+message = "chore(release): bump version {current_version} -> {new_version}"
+commit_args = ""
+
+# --- TA-cert-monitor ---
+[[tool.bumpversion.files]]
+filename = "TA-cert-monitor/default/app.conf"
+search = "version = {current_version}"
+replace = "version = {new_version}"
+
+[[tool.bumpversion.files]]
+filename = "TA-cert-monitor/app.manifest"
+search = '"version": "{current_version}"'
+replace = '"version": "{new_version}"'
+
+# --- splunk-app-cert-monitor ---
+[[tool.bumpversion.files]]
+filename = "splunk-app-cert-monitor/default/app.conf"
+search = "version = {current_version}"
+replace = "version = {new_version}"
+
+[[tool.bumpversion.files]]
+filename = "splunk-app-cert-monitor/app.manifest"
+search = '"version": "{current_version}"'
+replace = '"version": "{new_version}"'
