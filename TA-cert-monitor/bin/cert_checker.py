@@ -13,6 +13,7 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+import csv
 
 # 1. Resolve and inject vendored 'lib' BEFORE importing third-party packages
 BIND_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -196,6 +197,62 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
     return record
 
 
+def resolve_csv_path(filename):
+    """Resolves CSV filename in local app lookups directory or direct absolute path."""
+    if os.path.isabs(filename) and os.path.isfile(filename):
+        return filename
+
+    # Resolve relative to TA app root / lookups
+    app_root = os.path.dirname(BIND_DIR)
+    lookup_path = os.path.join(app_root, "lookups", filename)
+    if os.path.isfile(lookup_path):
+        return lookup_path
+
+    return None
+
+
+def load_targets_from_csv(csv_path):
+    """Yields sanitized target parameter dictionaries from CSV."""
+    targets = []
+    try:
+        with open(csv_path, mode="r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                host = row.get("target_host", "").strip()
+                if not host:
+                    continue
+                try:
+                    port = int(row.get("port", 443))
+                except ValueError:
+                    port = 443
+
+                sni = row.get("sni", "").strip() or host
+
+                try:
+                    timeout = min(float(row.get("timeout", 10)), 30.0)
+                except ValueError:
+                    timeout = 10.0
+
+                verify_cert = str(row.get("verify_cert", "true")).lower() in (
+                    "true",
+                    "1",
+                    "yes",
+                )
+
+                targets.append(
+                    {
+                        "target_host": host,
+                        "port": port,
+                        "sni": sni,
+                        "timeout": timeout,
+                        "verify_cert": verify_cert,
+                    }
+                )
+    except Exception as e:
+        logger.error(f"Error reading CSV {csv_path}: {e}")
+    return targets
+
+
 def run_input():
     """Reads XML configuration from Splunk on stdin and streams XML events on stdout."""
     config_str = sys.stdin.read()
@@ -213,10 +270,11 @@ def run_input():
         for param in input_node.findall("param"):
             params[param.get("name")] = param.text
 
+        # =========================================================================
+        # 1. READ GENERAL / DEFAULT PARAMETERS
+        # =========================================================================
+        csv_file = params.get("targets_csv")
         target_host = params.get("target_host")
-        if not target_host:
-            log_err(f"Missing target_host for stanza: {stanza_name}")
-            continue
 
         try:
             port = int(params.get("port", 443))
@@ -236,14 +294,50 @@ def run_input():
             "yes",
         )
 
-        cert_data = extract_cert_data(target_host, port, sni, timeout, verify_cert)
+        # =========================================================================
+        # 2. BUILD THE LIST OF TARGETS (CSV BULK MODE vs SINGLE TARGET MODE)
+        # =========================================================================
+        targets = []
 
-        sys.stdout.write("<event>\n")
-        sys.stdout.write(f"<stanza>{stanza_name}</stanza>\n")
-        sys.stdout.write("<sourcetype>cert:ssl:json</sourcetype>\n")
-        sys.stdout.write(f"<data><![CDATA[{json.dumps(cert_data)}]]></data>\n")
-        sys.stdout.write("</event>\n")
-        sys.stdout.flush()
+        if csv_file and csv_file.strip():
+            resolved_csv = resolve_csv_path(csv_file.strip())
+            if resolved_csv:
+                targets = load_targets_from_csv(resolved_csv)
+            else:
+                log_err(
+                    f"Could not locate targets_csv at: {csv_file} for stanza: {stanza_name}"
+                )
+                continue
+        elif target_host and target_host.strip():
+            targets = [
+                {
+                    "target_host": target_host.strip(),
+                    "port": port,
+                    "sni": sni,
+                    "timeout": timeout,
+                    "verify_cert": verify_cert,
+                }
+            ]
+        else:
+            log_err(
+                f"Stanza '{stanza_name}' must specify either 'targets_csv' or 'target_host'"
+            )
+            continue
+
+        # =========================================================================
+        # 3. EXECUTE CHECKS & STREAM XML EVENTS
+        # =========================================================================
+        for t in targets:
+            cert_data = extract_cert_data(
+                t["target_host"], t["port"], t["sni"], t["timeout"], t["verify_cert"]
+            )
+
+            sys.stdout.write("<event>\n")
+            sys.stdout.write(f"<stanza>{stanza_name}</stanza>\n")
+            sys.stdout.write("<sourcetype>cert:ssl:json</sourcetype>\n")
+            sys.stdout.write(f"<data><![CDATA[{json.dumps(cert_data)}]]></data>\n")
+            sys.stdout.write("</event>\n")
+            sys.stdout.flush()
 
     sys.stdout.write("</stream>\n")
     sys.stdout.flush()
@@ -257,16 +351,41 @@ def validate_arguments():
     for param in root.findall(".//configuration/stanza/param"):
         params[param.get("name")] = param.text
 
+    csv_file = params.get("targets_csv")
     host = params.get("target_host")
-    if not host or not host.strip():
-        sys.stderr.write("Validation error: target_host cannot be empty.\n")
+
+    # =========================================================================
+    # 1. ENSURE AT LEAST ONE TARGET MECHANISM IS DEFINED
+    # =========================================================================
+    if not (csv_file and csv_file.strip()) and not (host and host.strip()):
+        sys.stderr.write(
+            "Validation error: Either 'targets_csv' or 'target_host' must be specified.\n"
+        )
         sys.exit(1)
 
-    prohibited, reason = is_prohibited_ip(host.strip())
-    if prohibited:
-        sys.stderr.write(f"Validation error: {reason}\n")
-        sys.exit(1)
+    # =========================================================================
+    # 2. VALIDATE CSV PATH (IF PROVIDED)
+    # =========================================================================
+    if csv_file and csv_file.strip():
+        resolved_path = resolve_csv_path(csv_file.strip())
+        if not resolved_path:
+            sys.stderr.write(
+                f"Validation error: Target CSV '{csv_file}' was not found in 'lookups/' or as an absolute path.\n"
+            )
+            sys.exit(1)
 
+    # =========================================================================
+    # 3. VALIDATE SINGLE TARGET HOST (IF PROVIDED)
+    # =========================================================================
+    if host and host.strip():
+        prohibited, reason = is_prohibited_ip(host.strip())
+        if prohibited:
+            sys.stderr.write(f"Validation error: {reason}\n")
+            sys.exit(1)
+
+    # =========================================================================
+    # 4. VALIDATE PORT & TIMEOUT RANGES
+    # =========================================================================
     port = params.get("port")
     if port:
         try:

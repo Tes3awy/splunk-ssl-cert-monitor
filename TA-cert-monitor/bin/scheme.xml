@@ -1,42 +1,40 @@
 <scheme>
     <title>SSL/TLS Certificate Monitor</title>
-    <description>Extracts SSL/TLS certificate details, SNI, cipher information, and expiration
-        dates.</description>
+    <description>Monitors SSL/TLS certificate expirations, trust chains, and cipher suites.</description>
     <use_external_validation>true</use_external_validation>
     <streaming_mode>xml</streaming_mode>
-    <use_single_instance>false</use_single_instance>
-
+    <use_single_instance>true</use_single_instance>
     <endpoint>
         <args>
+            <arg name="targets_csv">
+                <title>Targets CSV File</title>
+                <description>Optional: Filename in lookups/ (e.g. ssl_targets.csv) or full path to a
+                    CSV target list.</description>
+                <required_on_create>false</required_on_create>
+            </arg>
             <arg name="target_host">
                 <title>Target Host</title>
-                <description>Hostname or IP address of the target server</description>
-                <data_type>string</data_type>
-                <required_on_create>true</required_on_create>
+                <description>Hostname or IP address (used if not loading from CSV).</description>
+                <required_on_create>false</required_on_create>
             </arg>
             <arg name="port">
                 <title>Port</title>
-                <description>SSL/TLS port (Default: 443)</description>
-                <data_type>number</data_type>
+                <description>Port number (default 443).</description>
                 <required_on_create>false</required_on_create>
             </arg>
             <arg name="sni">
-                <title>SNI (Server Name Indication)</title>
-                <description>Virtual host SNI header. If omitted, target_host is used.</description>
-                <data_type>string</data_type>
-                <required_on_create>false</required_on_create>
-            </arg>
-            <arg name="timeout">
-                <title>Timeout (seconds)</title>
-                <description>Connection timeout in seconds (Default: 10, Max: 30)</description>
-                <data_type>number</data_type>
+                <title>SNI</title>
+                <description>Server Name Indication hostname.</description>
                 <required_on_create>false</required_on_create>
             </arg>
             <arg name="verify_cert">
                 <title>Verify Certificate</title>
-                <description>Set to false to inspect self-signed or untrusted internal certificates
-                    (Default: true)</description>
-                <data_type>boolean</data_type>
+                <description>Enforce valid certificate chain (true/false).</description>
+                <required_on_create>false</required_on_create>
+            </arg>
+            <arg name="timeout">
+                <title>Timeout</title>
+                <description>Connection timeout in seconds (1-30).</description>
                 <required_on_create>false</required_on_create>
             </arg>
         </args>

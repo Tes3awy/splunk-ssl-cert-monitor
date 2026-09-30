@@ -10,8 +10,11 @@ python.required = <string>
 interval = <string>
 * How often to execute the check, in seconds or as a cron schedule string.
 
+targets_csv = <string>
+* Optional: Name of a CSV file in lookups/ or an absolute path to a CSV file containing targets.
+
 target_host = <string>
-* Target hostname or IP address to connect to.
+* Target hostname or IP address to connect to (required if targets_csv is not used).
 
 port = <integer>
 * Port number to connect to (default: 443).
