@@ -78,6 +78,54 @@ def parse_ssl_date(date_str):
     )
 
 
+def format_cert_dict(cert, now_utc):
+    """Parses a decoded OpenSSL cert dictionary into standard schema fields."""
+    if not cert:
+        return None
+
+    subject_dict = parse_dn(cert.get("subject", ()))
+    issuer_dict = parse_dn(cert.get("issuer", ()))
+    sans = [item[1] for item in cert.get("subjectAltName", []) if item[0] == "DNS"]
+
+    not_before = parse_ssl_date(cert["notBefore"])
+    not_after = parse_ssl_date(cert["notAfter"])
+    days_remaining = (not_after - now_utc).total_seconds() / 86400.0
+
+    return {
+        "subject_cn": subject_dict.get("commonName"),
+        "subject_org": subject_dict.get("organizationName"),
+        "subject_alt_names": sans,
+        "issuer_cn": issuer_dict.get("commonName"),
+        "issuer_org": issuer_dict.get("organizationName"),
+        "serial_number": cert.get("serialNumber"),
+        "valid_from": not_before.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "valid_to": not_after.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "days_remaining": round(days_remaining, 2),
+        "is_expired": days_remaining <= 0,
+        "is_self_signed": subject_dict == issuer_dict,
+    }
+
+
+def parse_der_bytes(der_bytes):
+    """Decodes raw DER binary certificate using Python's OpenSSL helper."""
+    tf_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.write(der_bytes)
+            tf.flush()
+            tf_path = tf.name
+        return ssl._ssl._test_decode_cert(tf_path)
+    except Exception as e:
+        logger.debug(f"Failed to decode DER cert: {e}")
+        return None
+    finally:
+        if tf_path and os.path.exists(tf_path):
+            try:
+                os.remove(tf_path)
+            except OSError:
+                pass
+
+
 def extract_cert_data(host, port, sni, timeout, verify_cert):
     """Connects via TLS handshake, extracts certificate details, and returns a dict."""
     now_utc = datetime.now(timezone.utc)
@@ -113,67 +161,92 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
 
         with socket.create_connection((host, port), timeout=timeout) as sock:
             with ctx.wrap_socket(sock, server_hostname=sni) as ssock:
-                cert = ssock.getpeercert()
                 cipher_info = ssock.cipher()
                 tls_version = ssock.version()
 
-                # When verify_mode == CERT_NONE, getpeercert() returns None/empty.
-                # In Python 3, ssl._ssl._test_decode_cert decodes raw DER binary form.
-                if not cert and not verify_cert:
-                    der_bytes = ssock.getpeercert(binary_form=True)
-                    if der_bytes:
-                        tf_path = None
-                        try:
-                            # delete=False prevents Windows OS file-locking exceptions
-                            with tempfile.NamedTemporaryFile(delete=False) as tf:
-                                tf.write(der_bytes)
-                                tf.flush()
-                                tf_path = tf.name
-                            cert = ssl._ssl._test_decode_cert(tf_path)
-                        except Exception as decode_err:
-                            logger.debug(
-                                f"Could not decode DER cert via OpenSSL helper: {decode_err}"
-                            )
-                            cert = {}
-                        finally:
-                            if tf_path and os.path.exists(tf_path):
-                                try:
-                                    os.remove(tf_path)
-                                except OSError:
-                                    pass
+                # -------------------------------------------------------------
+                # Certificate Chain Extraction
+                # -------------------------------------------------------------
+                chain_certs = []
 
+                # get_verified_chain() returns the full chain (Leaf -> Intermediates -> Root)
+                if hasattr(ssock, "get_verified_chain"):
+                    verified_chain = ssock.get_verified_chain()
+                    if verified_chain:
+                        for cert_obj in verified_chain:
+                            try:
+                                if hasattr(cert_obj, "public_bytes"):
+                                    from cryptography.hazmat.primitives import (
+                                        serialization,
+                                    )
+
+                                    der_data = cert_obj.public_bytes(
+                                        serialization.Encoding.DER
+                                    )
+                                elif hasattr(cert_obj, "to_cryptography"):
+                                    from cryptography.hazmat.primitives import (
+                                        serialization,
+                                    )
+
+                                    der_data = cert_obj.to_cryptography().public_bytes(
+                                        serialization.Encoding.DER
+                                    )
+                                else:
+                                    der_data = bytes(cert_obj)
+                                decoded = parse_der_bytes(der_data)
+                                if decoded:
+                                    parsed = format_cert_dict(decoded, now_utc)
+                                    if parsed:
+                                        chain_certs.append(parsed)
+                            except Exception:
+                                pass
+
+                # Fallback: Leaf-only if get_verified_chain was empty or unverified
+                if not chain_certs:
+                    cert = ssock.getpeercert()
+                    if not cert and not verify_cert:
+                        der_bytes = ssock.getpeercert(binary_form=True)
+                        if der_bytes:
+                            cert = parse_der_bytes(der_bytes)
+
+                    if cert:
+                        leaf_parsed = format_cert_dict(cert, now_utc)
+                        if leaf_parsed:
+                            chain_certs.append(leaf_parsed)
+
+                # Assign Chain Metadata
                 record["tls_version"] = tls_version
                 record["cipher"] = cipher_info[0] if cipher_info else None
                 record["cipher_bits"] = cipher_info[2] if cipher_info else None
+                record["chain_length"] = len(chain_certs)
+                record["certificate_chain"] = chain_certs
 
-                if cert:
-                    subject_dict = parse_dn(cert.get("subject", ()))
-                    issuer_dict = parse_dn(cert.get("issuer", ()))
-                    sans = [
-                        item[1]
-                        for item in cert.get("subjectAltName", [])
-                        if item[0] == "DNS"
-                    ]
-
-                    not_before = parse_ssl_date(cert["notBefore"])
-                    not_after = parse_ssl_date(cert["notAfter"])
-                    days_remaining = (not_after - now_utc).total_seconds() / 86400.0
-
+                if chain_certs:
+                    leaf = chain_certs[0]
+                    # Keep top-level keys for backward-compatibility with CIM & existing dashboards
                     record.update(
                         {
-                            "subject_cn": subject_dict.get("commonName"),
-                            "subject_org": subject_dict.get("organizationName"),
-                            "subject_alt_names": sans,
-                            "issuer_cn": issuer_dict.get("commonName"),
-                            "issuer_org": issuer_dict.get("organizationName"),
-                            "serial_number": cert.get("serialNumber"),
-                            "valid_from": not_before.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                            "valid_to": not_after.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                            "days_remaining": round(days_remaining, 2),
-                            "is_expired": days_remaining <= 0,
-                            "status": "EXPIRED" if days_remaining <= 0 else "VALID",
+                            "subject_cn": leaf["subject_cn"],
+                            "subject_org": leaf["subject_org"],
+                            "subject_alt_names": leaf["subject_alt_names"],
+                            "issuer_cn": leaf["issuer_cn"],
+                            "issuer_org": leaf["issuer_org"],
+                            "serial_number": leaf["serial_number"],
+                            "valid_from": leaf["valid_from"],
+                            "valid_to": leaf["valid_to"],
+                            "days_remaining": leaf["days_remaining"],
+                            "is_expired": leaf["is_expired"],
+                            "status": "EXPIRED" if leaf["is_expired"] else "VALID",
+                            "has_missing_intermediate": len(chain_certs) == 1
+                            and not leaf["is_self_signed"],
                         }
                     )
+
+                    # Flag issues across any intermediate or root certificate in the chain
+                    chain_expirations = [c["days_remaining"] for c in chain_certs]
+                    record["min_chain_days_remaining"] = min(chain_expirations)
+                    if record["min_chain_days_remaining"] <= 0:
+                        record["status"] = "CHAIN_EXPIRED"
                 else:
                     record["status"] = "UNVERIFIED_NO_PARSED_DATA"
 
