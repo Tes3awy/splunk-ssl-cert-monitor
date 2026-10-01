@@ -4,6 +4,7 @@ Splunk Modular Input: SSL/TLS Certificate Monitor
 Collects certificate expiration, issuer, subject, SANs, and cipher details via SNI.
 """
 
+import csv
 import ipaddress
 import json
 import os
@@ -11,9 +12,20 @@ import socket
 import ssl
 import sys
 import tempfile
+import urllib.parse
+import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
-import csv
+
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.serialization import Encoding
+from cryptography.x509.ocsp import (
+    OCSPCertStatus,
+    OCSPRequestBuilder,
+    OCSPResponseStatus,
+    load_der_ocsp_response,
+)
 
 # 1. Resolve and inject vendored 'lib' BEFORE importing third-party packages
 BIND_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -124,6 +136,98 @@ def parse_der_bytes(der_bytes):
                 os.remove(tf_path)
             except OSError:
                 pass
+
+
+def extract_revocation_endpoints(cert_obj):
+    """
+    Extracts OCSP AIA URLs and CRL Distribution Points from an x509 Certificate object.
+    """
+    ocsp_urls = []
+    crl_urls = []
+
+    try:
+        # 1. Authority Information Access (OCSP URLs)
+        aia_ext = cert_obj.extensions.get_extension_for_oid(
+            x509.ExtensionOID.AUTHORITY_INFORMATION_ACCESS
+        )
+        for desc in aia_ext.value:
+            if desc.access_method == x509.AuthorityInformationAccessOID.OCSP:
+                if isinstance(desc.access_location, x509.UniformResourceIdentifier):
+                    ocsp_urls.append(desc.access_location.value)
+    except x509.ExtensionNotFound:
+        pass
+    except Exception as e:
+        logger.debug(f"Failed extracting AIA extension: {e}")
+
+    try:
+        # 2. CRL Distribution Points
+        crl_ext = cert_obj.extensions.get_extension_for_oid(
+            x509.ExtensionOID.CRL_DISTRIBUTION_POINTS
+        )
+        for dp in crl_ext.value:
+            if dp.full_name:
+                for name in dp.full_name:
+                    if isinstance(name, x509.UniformResourceIdentifier):
+                        crl_urls.append(name.value)
+    except x509.ExtensionNotFound:
+        pass
+    except Exception as e:
+        logger.debug(f"Failed extracting CRL distribution points: {e}")
+
+    return ocsp_urls, crl_urls
+
+
+def check_ocsp_revocation(leaf_cert, issuer_cert, ocsp_url, timeout=5):
+    """
+    Builds and dispatches an OCSP request over HTTP and evaluates the responder status.
+    """
+    try:
+        # Build OCSP request
+        builder = OCSPRequestBuilder()
+        builder = builder.add_certificate(leaf_cert, issuer_cert, hashes.SHA256())
+        ocsp_req = builder.build()
+        req_data = ocsp_req.public_bytes(Encoding.DER)
+
+        # Enforce HTTP/HTTPS scheme
+        parsed_url = urllib.parse.urlparse(ocsp_url)
+        if parsed_url.scheme not in ("http", "https"):
+            return "UNKNOWN", f"Unsupported scheme: {parsed_url.scheme}"
+
+        req = urllib.request.Request(
+            ocsp_url,
+            data=req_data,
+            headers={"Content-Type": "application/ocsp-request"},
+        )
+
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            ocsp_resp_data = resp.read()
+
+        ocsp_response = load_der_ocsp_response(ocsp_resp_data)
+        if ocsp_response.response_status != OCSPResponseStatus.SUCCESSFUL:
+            return (
+                "UNKNOWN",
+                f"OCSP responder error: {ocsp_response.response_status.name}",
+            )
+
+        # Evaluate certificate status
+        if ocsp_response.certificate_status == OCSPCertStatus.GOOD:
+            return "GOOD", None
+        elif ocsp_response.certificate_status == OCSPCertStatus.REVOKED:
+            revocation_time = ocsp_response.revocation_time_utc.strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
+            reason = (
+                ocsp_response.revocation_reason.name
+                if ocsp_response.revocation_reason
+                else "Unspecified"
+            )
+            return "REVOKED", f"Revoked at {revocation_time}, reason: {reason}"
+        else:
+            return "UNKNOWN", "Certificate status unknown to responder"
+
+    except Exception as e:
+        logger.debug(f"OCSP check failed for {ocsp_url}: {e}")
+        return "ERROR", str(e)
 
 
 def extract_cert_data(host, port, sni, timeout, verify_cert):
@@ -249,6 +353,66 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
                         record["status"] = "CHAIN_EXPIRED"
                 else:
                     record["status"] = "UNVERIFIED_NO_PARSED_DATA"
+
+                # -------------------------------------------------------------
+                # Revocation Check (OCSP / CRL)
+                # -------------------------------------------------------------
+                revocation_status = "NOT_CHECKED"
+                revocation_reason = None
+                ocsp_endpoints = []
+                crl_endpoints = []
+
+                # Convert leaf and issuer to cryptography.x509 objects if present
+                if len(chain_certs) >= 2:
+                    try:
+                        leaf_der = ssock.getpeercert(binary_form=True)
+                        leaf_x509 = x509.load_der_x509_certificate(leaf_der)
+
+                        # Extract issuer x509 from verified chain
+                        issuer_der = None
+                        if hasattr(ssock, "get_verified_chain"):
+                            v_chain = ssock.get_verified_chain()
+                            if len(v_chain) >= 2:
+                                if hasattr(v_chain[1], "public_bytes"):
+                                    issuer_der = v_chain[1].public_bytes(Encoding.DER)
+                                elif hasattr(v_chain[1], "to_cryptography"):
+                                    issuer_der = (
+                                        v_chain[1]
+                                        .to_cryptography()
+                                        .public_bytes(Encoding.DER)
+                                    )
+
+                        if leaf_x509 and issuer_der:
+                            issuer_x509 = x509.load_der_x509_certificate(issuer_der)
+                            ocsp_endpoints, crl_endpoints = (
+                                extract_revocation_endpoints(leaf_x509)
+                            )
+
+                            if ocsp_endpoints:
+                                # Query the primary OCSP responder
+                                status, reason = check_ocsp_revocation(
+                                    leaf_x509,
+                                    issuer_x509,
+                                    ocsp_endpoints[0],
+                                    timeout=timeout,
+                                )
+                                revocation_status = status
+                                revocation_reason = reason
+                    except Exception as rev_err:
+                        logger.debug(
+                            f"Failed performing revocation evaluation: {rev_err}"
+                        )
+                        revocation_status = "EVALUATION_ERROR"
+                        revocation_reason = str(rev_err)
+
+                record["revocation_status"] = revocation_status
+                record["revocation_reason"] = revocation_reason
+                record["ocsp_responders"] = ocsp_endpoints
+                record["crl_distribution_points"] = crl_endpoints
+
+                # If certificate has been explicitly revoked, override overall status
+                if revocation_status == "REVOKED":
+                    record["status"] = "REVOKED"
 
     except ssl.SSLCertVerificationError as e:
         record["status"] = "VERIFICATION_FAILED"
