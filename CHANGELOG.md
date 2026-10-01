@@ -1,13 +1,27 @@
-# CHANGELOG
+# Changelog
 
-## Version 1.0.0
+All notable changes to this project will be documented in this file.
+## [1.2.0] - 2026-10-01
 
-Initial release
+### Bug Fixes
 
-## What's New in Version 1.1.0
+- *(ci)* Remove pip cache lookup in setup-python
 
-- **Standardized Build Lifecycle**: Integrated official Splunk Packaging Toolkit (slim) to enforce strict manifest validation and standardized package archiving.
+- *(ci)* Correct appinspect report data-format
 
-- **Automated Packaging Pipeline**: Automated end-to-end artifact building and AppInspect pre-certification in CI via GitHub Actions.
 
-- **Artifact Optimization**: Sanitized release archives with automated pruning of system metadata, temporary build caches, and bytecode.
+### Features
+
+- Add modular alert action, saved search alerts, and slim/bump-my-version tooling
+
+- *(ta)* Add bulk target scanning support via CSV lookup
+
+- *(ta)* Implement full certificate trust chain extraction and intermediate CA audit alerts
+
+- *(ta)* Add OCSP/CRL revocation checking and fix bumpversion config filename
+
+
+### Ci
+
+- Automate changelog generation and GitHub releases with git-cliff
+
