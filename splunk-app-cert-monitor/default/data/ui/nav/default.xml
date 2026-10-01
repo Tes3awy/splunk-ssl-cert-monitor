@@ -1,6 +1,6 @@
-<nav color="#0F172A">
+<nav search_view="search" color="#0F172A">
     <view name="cert_overview" default="true" />
-    <view name="cert_audit" />
+    <view name="cert_audit" icon="listcheck" />
     <view name="search" />
     <view name="datasets" />
     <view name="reports" />

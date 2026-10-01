@@ -21,3 +21,11 @@ export = system
 [alert_actions]
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system
+
+[indexes/ssl_cert]
+access = read : [ * ], write : [ admin ]
+export = system
+
+[macros/ssl_cert_index]
+access = read : [ * ], write : [ admin ]
+export = system

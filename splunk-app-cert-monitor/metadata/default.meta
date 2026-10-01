@@ -18,6 +18,10 @@ export = none
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system
 
+[macros/ssl_cert_index]
+access = read : [ * ], write : [ admin ]
+export = system
+
 ### Saved Searches & Pre-packaged Alerts ###
 [savedsearches]
 access = read : [ * ], write : [ admin, sc_admin ]

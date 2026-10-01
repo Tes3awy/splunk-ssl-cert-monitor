@@ -1,3 +1,6 @@
+index = <string>
+* Index to store SSL certificate scan events into (default: ssl_cert).
+
 [cert_checker://<name>]
 * Modular input for monitoring SSL/TLS certificates and endpoints.
 
