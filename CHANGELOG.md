@@ -1,6 +1,17 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [1.3.2] - 2026-10-01
+
+### Bug Fixes
+
+- *(ta)* Align target_host param in extract_cert_data and clean syntax encoding
+
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v1.3.1 [skip ci]
+
 ## [1.3.1] - 2026-10-01
 
 ### Bug Fixes
