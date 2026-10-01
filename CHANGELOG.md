@@ -1,6 +1,17 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [1.3.1] - 2026-10-01
+
+### Bug Fixes
+
+- *(ta)* Correct modular input xml streaming, ocsp get fallback, and ssrf resolution
+
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v1.3.0 [skip ci]
+
 ## [1.3.0] - 2026-10-01
 
 ### Bug Fixes
