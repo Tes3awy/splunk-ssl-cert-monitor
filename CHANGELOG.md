@@ -1,6 +1,24 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [1.3.0] - 2026-10-01
+
+### Bug Fixes
+
+- *(ta)* Remove prohibited maxDataSize and maxTotalDataSizeMB from indexes.conf
+
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v1.2.2 [skip ci]
+
+
+### Features
+
+- Declare dedicated ssl_cert index, macros, and metadata permissions
+
+- *(app)* Add app navigation styling and ensure index configurations
+
 ## [1.2.1] - 2026-10-01
 
 ### Bug Fixes
