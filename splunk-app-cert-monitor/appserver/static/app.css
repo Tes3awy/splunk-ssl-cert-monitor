@@ -1,0 +1,17 @@
+/* Prefix icon for Certificate Overview */
+li[data-view="cert_overview"] > a::before {
+  font-family: "SplunkIcons";
+  content: "\ECD9";
+  margin-right: 6px;
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+/* Prefix icon for Security Audit */
+li[data-view="cert_audit"] > a::before {
+  font-family: "SplunkIcons";
+  content: "\ECD4";
+  margin-right: 6px;
+  font-size: 14px;
+  vertical-align: middle;
+}
