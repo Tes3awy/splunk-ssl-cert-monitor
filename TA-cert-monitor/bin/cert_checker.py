@@ -265,18 +265,20 @@ def check_ocsp_revocation(leaf_cert, issuer_cert, ocsp_url, timeout=5):
         return "ERROR", str(e)
 
 
-def extract_cert_data(host, port, sni, timeout, verify_cert):
+def extract_cert_data(target_host, port, sni, timeout, verify_cert):
     """Connects via TLS handshake, extracts certificate details, and returns a dict."""
     now_utc = datetime.now(timezone.utc)
 
     # 1. SSRF Guard
-    prohibited, reason = is_prohibited_ip(host)
+    prohibited, reason = is_prohibited_ip(target_host)
     if prohibited:
-        logger.warning(f"Blocked connection attempt to prohibited target: {host}")
+        logger.warning(
+            f"Blocked connection attempt to prohibited target: {target_host}"
+        )
         return {
-            "target_host": host,
+            "target_host": target_host,
             "target_port": port,
-            "dest": host,
+            "dest": target_host,
             "dest_port": port,
             "sni": sni,
             "scan_time": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -285,9 +287,9 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
         }
 
     record = {
-        "target_host": host,
+        "target_host": target_host,
         "target_port": port,
-        "dest": host,
+        "dest": target_host,
         "dest_port": port,
         "sni": sni,
         "scan_time": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -301,7 +303,7 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
 
-        with socket.create_connection((host, port), timeout=timeout) as sock:
+        with socket.create_connection((target_host, port), timeout=timeout) as sock:
             with ctx.wrap_socket(sock, server_hostname=sni) as ssock:
                 cipher_info = ssock.cipher()
                 tls_version = ssock.version()
@@ -460,19 +462,21 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
     except ssl.SSLCertVerificationError as e:
         record["status"] = "VERIFICATION_FAILED"
         record["error_message"] = str(e)
-        logger.info(f"Certificate verification failed for {host}:{port} ({sni}): {e}")
+        logger.info(
+            f"Certificate verification failed for {target_host}:{port} ({sni}): {e}"
+        )
     except ssl.SSLError as e:
         record["status"] = "TLS_HANDSHAKE_ERROR"
         record["error_message"] = str(e)
-        logger.info(f"TLS handshake error for {host}:{port} ({sni}): {e}")
+        logger.info(f"TLS handshake error for {target_host}:{port} ({sni}): {e}")
     except TimeoutError:
         record["status"] = "TIMEOUT"
         record["error_message"] = f"Connection timed out after {timeout}s"
-        logger.info(f"Timeout connecting to {host}:{port} ({sni})")
+        logger.info(f"Timeout connecting to {target_host}:{port} ({sni})")
     except (OSError, ValueError, KeyError, TypeError) as e:
         record["status"] = "CONNECTION_ERROR"
         record["error_message"] = str(e)
-        logger.info(f"Connection error for {host}:{port} ({sni}): {e}")
+        logger.info(f"Connection error for {target_host}:{port} ({sni}): {e}")
 
     return record
 
