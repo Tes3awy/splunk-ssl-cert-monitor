@@ -1,37 +1,105 @@
 <dashboard version="1.1" theme="dark">
-    <label>SSL / TLS Security Audit</label>
-    <description>Audit weak ciphers, deprecated TLS protocols, and certificate drift.</description>
+  <label>SSL / TLS Security Audit</label>
+  <description>Audit weak ciphers, deprecated TLS protocols, and certificate trust chain
+    anomalies.</description>
 
-    <row>
-        <panel>
-            <table>
-                <title>Insecure Protocol &amp; Cipher Audit</title>
-                <search>
-                    <query>
-                        `ssl_cert_index` sourcetype="cert:ssl:json"
-                        | stats latest(ssl_version) as ssl_version,
-                        latest(ssl_cipher) as ssl_cipher,
-                        latest(ssl_issuer) as ssl_issuer,
-                        latest(_time) as last_seen
-                        by dest, dest_port, sni
-                        | search ssl_version IN ("TLSv1", "TLSv1.1", "SSLv2", "SSLv3") OR
-                        ssl_cipher="*RC4*" OR ssl_cipher="*3DES*" OR ssl_cipher="*NULL*"
-                        | eval Target=dest . ":" . dest_port,
-                        last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S UTC")
-                        | table Target, sni, ssl_version, ssl_cipher, ssl_issuer, last_seen
-                        | rename Target as "Endpoint",
-                        sni as "SNI",
-                        ssl_version as "Protocol",
-                        ssl_cipher as "Negotiated Cipher",
-                        ssl_issuer as "Issuer",
-                        last_seen as "Audit Timestamp"
-                    </query>
-                    <earliest>-7d@h</earliest>
-                    <latest>now</latest>
-                </search>
-                <option name="count">20</option>
-                <option name="drilldown">none</option>
-            </table>
-        </panel>
-    </row>
+  <!-- Row 1: Insecure Protocols & Ciphers -->
+  <row>
+    <panel>
+      <table>
+        <title>Insecure Protocol &amp; Cipher Audit</title>
+        <search>
+          <query>
+            `ssl_cert_index` sourcetype="cert:ssl:json"
+            | eval dest=coalesce(dest, target_host), dest_port=coalesce(dest_port, port)
+            | stats latest(ssl_version) as ssl_version,
+            latest(ssl_cipher) as ssl_cipher,
+            latest(ssl_issuer) as ssl_issuer,
+            latest(issuer_cn) as issuer_cn,
+            latest(_time) as last_seen
+            by dest, dest_port, sni
+            | search ssl_version IN ("TLSv1", "TLSv1.1", "SSLv2", "SSLv3") OR
+            ssl_cipher="*RC4*" OR ssl_cipher="*3DES*" OR ssl_cipher="*NULL*"
+            | eval Target=dest . ":" . dest_port,
+            Issuer=coalesce(ssl_issuer, issuer_cn),
+            last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S UTC")
+            | table Target, sni, ssl_version, ssl_cipher, Issuer, last_seen
+            | rename Target as "Endpoint",
+            sni as "SNI",
+            ssl_version as "Protocol",
+            ssl_cipher as "Negotiated Cipher",
+            last_seen as "Audit Timestamp"
+          </query>
+          <earliest>-7d@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 2: Incomplete Certificate Chains -->
+  <row>
+    <panel>
+      <table>
+        <title>Incomplete Certificate Chains (Missing Intermediate CA)</title>
+        <search>
+          <query>
+            `ssl_cert_index` sourcetype="cert:ssl:json" has_missing_intermediate=true
+            | eval dest=coalesce(dest, target_host), dest_port=coalesce(dest_port, port)
+            | stats latest(issuer_cn) as missing_intermediate_issuer,
+            latest(subject_cn) as subject_cn,
+            latest(_time) as last_seen
+            by dest, dest_port, sni
+            | eval last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S UTC"),
+            Endpoint=dest . ":" . dest_port
+            | table Endpoint, sni, subject_cn, missing_intermediate_issuer, last_seen
+            | rename Endpoint as "Endpoint", sni as "SNI", subject_cn as "Leaf Subject",
+            missing_intermediate_issuer as "Missing Issuer CA", last_seen as "Last
+            Detected"
+          </query>
+          <earliest>-7d@d</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="wrap">true</option>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Row 3: Intermediate & Root CA Expiration Watchlist -->
+  <row>
+    <panel>
+      <table>
+        <title>Trust Chain Expiration Audit (Intermediate &amp; Root CAs)</title>
+        <search>
+          <query>
+            `ssl_cert_index` sourcetype="cert:ssl:json"
+            | eval dest=coalesce(dest, target_host)
+            | spath input=certificate_chain path="{}" output=chain_element
+            | mvexpand chain_element
+            | spath input=chain_element
+            | search is_self_signed=false days_remaining &lt;= 90
+            | stats min(days_remaining) as days_remaining, latest(valid_to) as valid_to
+            by subject_cn, issuer_cn, dest
+            | eval days_remaining=round(days_remaining, 1)
+            | sort days_remaining
+            | rename dest as "Host", subject_cn as "CA Subject", issuer_cn as "Parent
+            Issuer", days_remaining as "Days Remaining", valid_to as "Valid Until"
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="wrap">true</option>
+        <option name="drilldown">none</option>
+        <format type="color" field="Days Remaining">
+          <colorPalette type="list">[#DC4E41, #F8BE34, #53A051]</colorPalette>
+          <scale type="threshold">15,30</scale>
+        </format>
+      </table>
+    </panel>
+  </row>
 </dashboard>

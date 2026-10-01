@@ -1,31 +1,42 @@
 <dashboard version="1.1" theme="dark">
   <label>SSL / TLS Certificate Monitoring &amp; Expiry</label>
-  <description>Operational tracking, renewal countdowns, and TLS protocol audits across managed endpoints.</description>
+  <description>Operational tracking, renewal countdowns, and TLS protocol audits across managed
+    endpoints.</description>
 
   <!-- Global Base Search: Deduplicates to the latest check per target/port -->
   <search id="base_cert_search">
     <query>
       `ssl_cert_index` sourcetype="cert:ssl:json"
+      | eval dest=coalesce(dest, target_host), dest_port=coalesce(dest_port, port)
       | stats latest(days_remaining) as days_remaining,
-              latest(ssl_subject) as ssl_subject,
-              latest(ssl_issuer) as ssl_issuer,
-              latest(ssl_issuer_common_name) as ssl_issuer_common_name,
-              latest(ssl_version) as ssl_version,
-              latest(ssl_cipher) as ssl_cipher,
-              latest(ssl_end_time) as ssl_end_time,
-              latest(status) as status,
-              latest(_time) as last_checked
-        by dest, dest_port, sni
-      | eval days_remaining=round(days_remaining, 0),
-             ssl_end_date=strftime(ssl_end_time, "%Y-%m-%d %H:%M:%S UTC"),
-             expiry_status=case(
-                days_remaining &lt;= 0 OR status=="EXPIRED", "Expired",
-                days_remaining &lt;= 15, "Critical (&lt;= 15d)",
-                days_remaining &lt;= 30, "Warning (16-30d)",
-                days_remaining &lt;= 60, "Expiring Soon (31-60d)",
-                true(), "Healthy (&gt; 60d)"
-             ),
-             insecure_tls=if(ssl_version IN ("TLSv1", "TLSv1.1", "SSLv2", "SSLv3"), 1, 0)
+      latest(min_chain_days_remaining) as chain_min_days,
+      latest(chain_length) as chain_len,
+      latest(has_missing_intermediate) as missing_intermediate,
+      latest(revocation_status) as revocation_status,
+      latest(ssl_subject) as ssl_subject,
+      latest(ssl_issuer) as ssl_issuer,
+      latest(ssl_issuer_common_name) as ssl_issuer_common_name,
+      latest(issuer_cn) as issuer_cn,
+      latest(ssl_version) as ssl_version,
+      latest(ssl_cipher) as ssl_cipher,
+      latest(ssl_end_time) as ssl_end_time,
+      latest(valid_to) as valid_to,
+      latest(status) as status,
+      latest(_time) as last_checked
+      by dest, dest_port, sni
+      | eval days_remaining=round(coalesce(days_remaining, chain_min_days), 0),
+      chain_min_days=round(chain_min_days, 1),
+      ssl_end_date=coalesce(strftime(ssl_end_time, "%Y-%m-%d %H:%M:%S UTC"), valid_to),
+      issuer=coalesce(ssl_issuer_common_name, issuer_cn, ssl_issuer),
+      expiry_status=case(
+      days_remaining &lt;= 0 OR status=="EXPIRED" OR status=="CHAIN_EXPIRED", "Expired",
+      days_remaining &lt;= 15, "Critical (&lt;= 15d)",
+      days_remaining &lt;= 30, "Warning (16-30d)",
+      days_remaining &lt;= 60, "Expiring Soon (31-60d)",
+      true(), "Healthy (&gt; 60d)"
+      ),
+      insecure_tls=if(ssl_version IN ("TLSv1", "TLSv1.1", "SSLv2", "SSLv3"), 1, 0),
+      is_revoked=if(status=="REVOKED" OR revocation_status=="REVOKED", 1, 0)
     </query>
     <earliest>-24h@h</earliest>
     <latest>now</latest>
@@ -72,7 +83,7 @@
         <title>Expired Certificates</title>
         <search base="base_cert_search">
           <query>
-            | search days_remaining &lt;= 0 OR status="EXPIRED"
+            | search days_remaining &lt;= 0 OR status="EXPIRED" OR status="CHAIN_EXPIRED"
             | stats count
           </query>
         </search>
@@ -89,7 +100,7 @@
         <title>Critical Expiry (&lt;= 15 Days)</title>
         <search base="base_cert_search">
           <query>
-            | search days_remaining &gt; 0 days_remaining &lt;= 15
+            | search days_remaining &gt; 0 days_remaining &lt;= 15 status!="EXPIRED"
             | stats count
           </query>
         </search>
@@ -134,6 +145,23 @@
         <option name="underLabel">TLS &lt;= 1.1 Detected</option>
       </single>
     </panel>
+
+    <panel>
+      <single>
+        <title>Revoked Certificates</title>
+        <search base="base_cert_search">
+          <query>
+            | search is_revoked=1
+            | stats count
+          </query>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x53a051","0xdc4e41"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="useColors">1</option>
+        <option name="underLabel">Active Revocations (OCSP/CRL)</option>
+      </single>
+    </panel>
   </row>
 
   <!-- Row 2: Visual Distribution & Timeline -->
@@ -150,7 +178,9 @@
         <option name="charting.legend.placement">none</option>
         <option name="charting.axisTitleX.text">Status Category</option>
         <option name="charting.axisTitleY.text">Certificate Count</option>
-        <option name="charting.fieldColors">{"Expired":0xdc4e41,"Critical (&lt;= 15d)":0xd93f3c,"Warning (16-30d)":0xf8be34,"Expiring Soon (31-60d)":0xf1813f,"Healthy (&gt; 60d)":0x53a051}</option>
+        <option name="charting.fieldColors">{"Expired":0xdc4e41,"Critical (&lt;=
+          15d)":0xd93f3c,"Warning (16-30d)":0xf8be34,"Expiring Soon (31-60d)":0xf1813f,"Healthy
+          (&gt; 60d)":0x53a051}</option>
       </chart>
     </panel>
 
@@ -159,7 +189,7 @@
         <title>Top Certificate Authorities (Issuer)</title>
         <search base="base_cert_search">
           <query>
-            | stats count by ssl_issuer
+            | stats count by issuer
             | sort - count
             | head 7
           </query>
@@ -182,39 +212,31 @@
     </panel>
   </row>
 
-  <!-- Row 3: Actionable Inventory Table with Color Highlighting -->
+  <!-- Row 3: Actionable Inventory Table with Color Highlighting & Active Filters -->
   <row>
     <panel>
-      <table>
-        <title>Endpoint Certificate Inventory &amp; Expiry Schedule</title>
+      <table id="cert_inventory_table">
+        <title>Certificate Fleet Status</title>
         <search base="base_cert_search">
           <query>
-            | search (dest="$filter_dest$" OR sni="$filter_dest$") AND expiry_status="$filter_status$"
-            | eval Target=dest . ":" . dest_port
-            | sort days_remaining
-            | table Target, sni, ssl_subject, ssl_issuer, days_remaining, ssl_end_date, ssl_version, ssl_cipher, expiry_status
-            | rename Target as "Endpoint",
-                     sni as "SNI",
-                     ssl_subject as "Subject CN",
-                     ssl_issuer as "Issuer",
-                     days_remaining as "Days Remaining",
-                     ssl_end_date as "Valid Until",
-                     ssl_version as "TLS Version",
-                     ssl_cipher as "Cipher Suite",
-                     expiry_status as "Urgency"
+            | search (dest="$filter_dest$" OR sni="$filter_dest$") expiry_status=$filter_status$
+            | table dest, dest_port, sni, status, revocation_status, days_remaining, chain_min_days,
+            chain_len, missing_intermediate, issuer, ssl_end_date
+            | rename dest as "Host", dest_port as "Port", sni as "SNI", status as "Status",
+            revocation_status as "Revocation", days_remaining as "Leaf Days Left", chain_min_days as
+            "Min Chain Days", chain_len as "Chain Depth", missing_intermediate as "Missing CA?",
+            issuer as "Issuer", ssl_end_date as "Expiration Date"
+            | sort Status, "Min Chain Days"
           </query>
         </search>
-        <option name="count">20</option>
-        <option name="dataOverlayMode">none</option>
-        <option name="drilldown">row</option>
-        <format type="color" field="Days Remaining">
-          <colorPalette type="minMidMax" maxColor="#53A051" midColor="#F8BE34" minColor="#DC4E41"></colorPalette>
-          <scale type="minMidMax" maxMetric="60" midMetric="30" minMetric="0"></scale>
+        <option name="drilldown">none</option>
+        <format type="color" field="Status">
+          <colorPalette type="map">{"VALID": "0x53A051", "EXPIRED": "0xDC4E41", "CHAIN_EXPIRED":
+            "0xF8BE34", "REVOKED": "0xD93F3C"}</colorPalette>
         </format>
-        <format type="color" field="Urgency">
-          <colorPalette type="map">
-            {"Expired": #DC4E41, "Critical (&lt;= 15d)": #DC4E41, "Warning (16-30d)": #F8BE34, "Expiring Soon (31-60d)": #F1813F, "Healthy (&gt; 60d)": #53A051}
-          </colorPalette>
+        <format type="color" field="Revocation">
+          <colorPalette type="map">{"GOOD": "0x53A051", "REVOKED": "0xD93F3C", "UNKNOWN":
+            "0xF8BE34", "NOT_CHECKED": "0x708090", "ERROR": "0xF1813F"}</colorPalette>
         </format>
       </table>
     </panel>
