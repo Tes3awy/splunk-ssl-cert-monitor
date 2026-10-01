@@ -1,5 +1,6 @@
 [![Splunkbase](https://img.shields.io/badge/Splunkbase-TA--cert--monitor-blue.svg)](https://splunkbase.splunk.com/app/9906)
 [![Splunkbase](https://img.shields.io/badge/Splunkbase-splunk--app--cert--monitor-brightgreen.svg)](https://splunkbase.splunk.com/app/9907)
+[![Splunk AppInspect CI](https://github.com/Tes3awy/splunk-ssl-cert-monitor/actions/workflows/appinspect.yml/badge.svg)](https://github.com/Tes3awy/splunk-ssl-cert-monitor/actions/workflows/appinspect.yml)
 
 # SSL / TLS Certificate Monitor App & Technology Add-on
 
