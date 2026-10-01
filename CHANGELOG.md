@@ -1,6 +1,17 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [1.2.1] - 2026-10-01
+
+### Bug Fixes
+
+- *(dashboards)* Wire up filters, add revocation KPI card, and separate audit rows
+
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v1.2.0 [skip ci]
+
 ## [1.2.0] - 2026-10-01
 
 ### Bug Fixes
