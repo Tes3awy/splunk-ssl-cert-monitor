@@ -4,9 +4,11 @@ Splunk Modular Input: SSL/TLS Certificate Monitor
 Collects certificate expiration, issuer, subject, SANs, and cipher details via SNI.
 """
 
+import base64
 import csv
 import ipaddress
 import json
+import logging
 import os
 import socket
 import ssl
@@ -15,10 +17,11 @@ import tempfile
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+import xml.sax.saxutils as saxutils
 from datetime import datetime, timezone
 
 from cryptography import x509
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509.ocsp import (
     OCSPCertStatus,
@@ -60,6 +63,7 @@ def is_prohibited_ip(host_str):
     and IPv4/IPv6 loopback targets to prevent SSRF abuse.
     """
     try:
+        # First check raw IP strings
         ip = ipaddress.ip_address(host_str)
         if ip.is_link_local or ip.is_loopback:
             return (
@@ -67,8 +71,19 @@ def is_prohibited_ip(host_str):
                 "Access to link-local, loopback, and cloud metadata addresses is prohibited.",
             )
     except ValueError:
-        # Target is a hostname, not a raw IP address
-        pass
+        # Target is a domain name; resolve and verify IP
+        try:
+            addr_info = socket.getaddrinfo(host_str, None)
+            for item in addr_info:
+                ip = ipaddress.ip_address(item[4][0])
+                if ip.is_link_local or ip.is_loopback:
+                    return (
+                        True,
+                        "Target resolves to link-local or loopback address (SSRF blocked).",
+                    )
+        except socket.gaierror:
+            pass
+
     return False, None
 
 
@@ -146,7 +161,6 @@ def extract_revocation_endpoints(cert_obj):
     crl_urls = []
 
     try:
-        # 1. Authority Information Access (OCSP URLs)
         aia_ext = cert_obj.extensions.get_extension_for_oid(
             x509.ExtensionOID.AUTHORITY_INFORMATION_ACCESS
         )
@@ -160,7 +174,6 @@ def extract_revocation_endpoints(cert_obj):
         logger.debug(f"Failed extracting AIA extension: {e}")
 
     try:
-        # 2. CRL Distribution Points
         crl_ext = cert_obj.extensions.get_extension_for_oid(
             x509.ExtensionOID.CRL_DISTRIBUTION_POINTS
         )
@@ -179,28 +192,45 @@ def extract_revocation_endpoints(cert_obj):
 
 def check_ocsp_revocation(leaf_cert, issuer_cert, ocsp_url, timeout=5):
     """
-    Builds and dispatches an OCSP request over HTTP and evaluates the responder status.
+    Builds and dispatches an OCSP request over HTTP and evaluates responder status.
+    Supports GET fallback for compatibility with strict CA responders.
     """
     try:
-        # Build OCSP request
         builder = OCSPRequestBuilder()
         builder = builder.add_certificate(leaf_cert, issuer_cert, hashes.SHA256())
         ocsp_req = builder.build()
         req_data = ocsp_req.public_bytes(Encoding.DER)
 
-        # Enforce HTTP/HTTPS scheme
         parsed_url = urllib.parse.urlparse(ocsp_url)
         if parsed_url.scheme not in ("http", "https"):
             return "UNKNOWN", f"Unsupported scheme: {parsed_url.scheme}"
 
-        req = urllib.request.Request(
-            ocsp_url,
-            data=req_data,
-            headers={"Content-Type": "application/ocsp-request"},
-        )
+        headers = {
+            "Content-Type": "application/ocsp-request",
+            "User-Agent": "SplunkCertMonitor/1.2.0",
+        }
 
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            ocsp_resp_data = resp.read()
+        # Attempt POST first
+        ocsp_resp_data = None
+        req = urllib.request.Request(ocsp_url, data=req_data, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                ocsp_resp_data = resp.read()
+        except urllib.error.HTTPError as http_err:
+            # Fallback to GET for CAs rejecting POST
+            if http_err.code in (400, 405, 501):
+                b64_req = urllib.parse.quote(base64.b64encode(req_data).decode("ascii"))
+                get_url = f"{ocsp_url.rstrip('/')}/{b64_req}"
+                get_req = urllib.request.Request(
+                    get_url, headers={"User-Agent": "SplunkCertMonitor/1.2.0"}
+                )
+                with urllib.request.urlopen(get_req, timeout=timeout) as resp:
+                    ocsp_resp_data = resp.read()
+            else:
+                raise
+
+        if not ocsp_resp_data:
+            return "UNKNOWN", "Empty response from OCSP responder"
 
         ocsp_response = load_der_ocsp_response(ocsp_resp_data)
         if ocsp_response.response_status != OCSPResponseStatus.SUCCESSFUL:
@@ -209,12 +239,17 @@ def check_ocsp_revocation(leaf_cert, issuer_cert, ocsp_url, timeout=5):
                 f"OCSP responder error: {ocsp_response.response_status.name}",
             )
 
-        # Evaluate certificate status
         if ocsp_response.certificate_status == OCSPCertStatus.GOOD:
             return "GOOD", None
         elif ocsp_response.certificate_status == OCSPCertStatus.REVOKED:
-            revocation_time = ocsp_response.revocation_time_utc.strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
+            rev_time_obj = (
+                getattr(ocsp_response, "revocation_time_utc", None)
+                or ocsp_response.revocation_time
+            )
+            revocation_time = (
+                rev_time_obj.strftime("%Y-%m-%dT%H:%M:%SZ")
+                if rev_time_obj
+                else "Unknown"
             )
             reason = (
                 ocsp_response.revocation_reason.name
@@ -234,13 +269,15 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
     """Connects via TLS handshake, extracts certificate details, and returns a dict."""
     now_utc = datetime.now(timezone.utc)
 
-    # Security: Validate target host against SSRF blocklist
+    # 1. SSRF Guard
     prohibited, reason = is_prohibited_ip(host)
     if prohibited:
         logger.warning(f"Blocked connection attempt to prohibited target: {host}")
         return {
             "target_host": host,
             "target_port": port,
+            "dest": host,
+            "dest_port": port,
             "sni": sni,
             "scan_time": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "status": "SECURITY_ERROR",
@@ -250,6 +287,8 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
     record = {
         "target_host": host,
         "target_port": port,
+        "dest": host,
+        "dest_port": port,
         "sni": sni,
         "scan_time": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "status": "UNKNOWN",
@@ -259,7 +298,6 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
     try:
         ctx = ssl.create_default_context()
         if not verify_cert:
-            # Audit mode for internal PKI and staging hosts
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
 
@@ -272,84 +310,92 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
                 # Certificate Chain Extraction
                 # -------------------------------------------------------------
                 chain_certs = []
+                raw_der_chain = []
 
-                # get_verified_chain() returns the full chain (Leaf -> Intermediates -> Root)
                 if hasattr(ssock, "get_verified_chain"):
-                    verified_chain = ssock.get_verified_chain()
-                    if verified_chain:
-                        for cert_obj in verified_chain:
-                            try:
-                                if hasattr(cert_obj, "public_bytes"):
-                                    from cryptography.hazmat.primitives import (
-                                        serialization,
-                                    )
+                    raw_der_chain = ssock.get_verified_chain() or []
+                elif hasattr(ssock, "get_unverified_chain"):
+                    raw_der_chain = ssock.get_unverified_chain() or []
 
-                                    der_data = cert_obj.public_bytes(
-                                        serialization.Encoding.DER
-                                    )
-                                elif hasattr(cert_obj, "to_cryptography"):
-                                    from cryptography.hazmat.primitives import (
-                                        serialization,
-                                    )
+                if raw_der_chain:
+                    for cert_obj in raw_der_chain:
+                        try:
+                            if hasattr(cert_obj, "public_bytes"):
+                                der_data = cert_obj.public_bytes(
+                                    serialization.Encoding.DER
+                                )
+                            elif hasattr(cert_obj, "to_cryptography"):
+                                der_data = cert_obj.to_cryptography().public_bytes(
+                                    serialization.Encoding.DER
+                                )
+                            else:
+                                der_data = bytes(cert_obj)
 
-                                    der_data = cert_obj.to_cryptography().public_bytes(
-                                        serialization.Encoding.DER
-                                    )
-                                else:
-                                    der_data = bytes(cert_obj)
-                                decoded = parse_der_bytes(der_data)
-                                if decoded:
-                                    parsed = format_cert_dict(decoded, now_utc)
-                                    if parsed:
-                                        chain_certs.append(parsed)
-                            except Exception:
-                                pass
+                            decoded = parse_der_bytes(der_data)
+                            if decoded:
+                                parsed = format_cert_dict(decoded, now_utc)
+                                if parsed:
+                                    chain_certs.append(parsed)
+                        except Exception as parse_err:
+                            logger.debug(f"Error parsing chain element: {parse_err}")
 
-                # Fallback: Leaf-only if get_verified_chain was empty or unverified
+                # Fallback: Leaf-only if chain method is unavailable
                 if not chain_certs:
-                    cert = ssock.getpeercert()
-                    if not cert and not verify_cert:
-                        der_bytes = ssock.getpeercert(binary_form=True)
-                        if der_bytes:
-                            cert = parse_der_bytes(der_bytes)
+                    der_bytes = ssock.getpeercert(binary_form=True)
+                    if der_bytes:
+                        decoded = parse_der_bytes(der_bytes)
+                        if decoded:
+                            leaf_parsed = format_cert_dict(decoded, now_utc)
+                            if leaf_parsed:
+                                chain_certs.append(leaf_parsed)
 
-                    if cert:
-                        leaf_parsed = format_cert_dict(cert, now_utc)
-                        if leaf_parsed:
-                            chain_certs.append(leaf_parsed)
-
-                # Assign Chain Metadata
+                # Assign TLS Metadata
                 record["tls_version"] = tls_version
+                record["ssl_version"] = tls_version
                 record["cipher"] = cipher_info[0] if cipher_info else None
+                record["ssl_cipher"] = cipher_info[0] if cipher_info else None
                 record["cipher_bits"] = cipher_info[2] if cipher_info else None
                 record["chain_length"] = len(chain_certs)
                 record["certificate_chain"] = chain_certs
 
                 if chain_certs:
                     leaf = chain_certs[0]
-                    # Keep top-level keys for backward-compatibility with CIM & existing dashboards
                     record.update(
                         {
-                            "subject_cn": leaf["subject_cn"],
-                            "subject_org": leaf["subject_org"],
-                            "subject_alt_names": leaf["subject_alt_names"],
-                            "issuer_cn": leaf["issuer_cn"],
-                            "issuer_org": leaf["issuer_org"],
-                            "serial_number": leaf["serial_number"],
-                            "valid_from": leaf["valid_from"],
-                            "valid_to": leaf["valid_to"],
-                            "days_remaining": leaf["days_remaining"],
-                            "is_expired": leaf["is_expired"],
-                            "status": "EXPIRED" if leaf["is_expired"] else "VALID",
+                            "subject_cn": leaf.get("subject_cn"),
+                            "ssl_subject": leaf.get("subject_cn"),
+                            "subject_org": leaf.get("subject_org"),
+                            "subject_alt_names": leaf.get("subject_alt_names"),
+                            "issuer_cn": leaf.get("issuer_cn"),
+                            "ssl_issuer": leaf.get("issuer_cn"),
+                            "ssl_issuer_common_name": leaf.get("issuer_cn"),
+                            "issuer_org": leaf.get("issuer_org"),
+                            "serial_number": leaf.get("serial_number"),
+                            "valid_from": leaf.get("valid_from"),
+                            "valid_to": leaf.get("valid_to"),
+                            "ssl_end_time": leaf.get("valid_to"),
+                            "days_remaining": leaf.get("days_remaining"),
+                            "is_expired": leaf.get("is_expired"),
+                            "status": "EXPIRED" if leaf.get("is_expired") else "VALID",
                             "has_missing_intermediate": len(chain_certs) == 1
-                            and not leaf["is_self_signed"],
+                            and not leaf.get("is_self_signed", False),
                         }
                     )
 
-                    # Flag issues across any intermediate or root certificate in the chain
-                    chain_expirations = [c["days_remaining"] for c in chain_certs]
-                    record["min_chain_days_remaining"] = min(chain_expirations)
-                    if record["min_chain_days_remaining"] <= 0:
+                    chain_expirations = [
+                        c["days_remaining"]
+                        for c in chain_certs
+                        if c.get("days_remaining") is not None
+                    ]
+                    record["min_chain_days_remaining"] = (
+                        min(chain_expirations)
+                        if chain_expirations
+                        else leaf.get("days_remaining")
+                    )
+                    if (
+                        record["min_chain_days_remaining"] is not None
+                        and record["min_chain_days_remaining"] <= 0
+                    ):
                         record["status"] = "CHAIN_EXPIRED"
                 else:
                     record["status"] = "UNVERIFIED_NO_PARSED_DATA"
@@ -362,25 +408,24 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
                 ocsp_endpoints = []
                 crl_endpoints = []
 
-                # Convert leaf and issuer to cryptography.x509 objects if present
                 if len(chain_certs) >= 2:
                     try:
                         leaf_der = ssock.getpeercert(binary_form=True)
                         leaf_x509 = x509.load_der_x509_certificate(leaf_der)
 
-                        # Extract issuer x509 from verified chain
                         issuer_der = None
-                        if hasattr(ssock, "get_verified_chain"):
-                            v_chain = ssock.get_verified_chain()
-                            if len(v_chain) >= 2:
-                                if hasattr(v_chain[1], "public_bytes"):
-                                    issuer_der = v_chain[1].public_bytes(Encoding.DER)
-                                elif hasattr(v_chain[1], "to_cryptography"):
-                                    issuer_der = (
-                                        v_chain[1]
-                                        .to_cryptography()
-                                        .public_bytes(Encoding.DER)
-                                    )
+                        if raw_der_chain and len(raw_der_chain) >= 2:
+                            issuer_obj = raw_der_chain[1]
+                            if hasattr(issuer_obj, "public_bytes"):
+                                issuer_der = issuer_obj.public_bytes(
+                                    serialization.Encoding.DER
+                                )
+                            elif hasattr(issuer_obj, "to_cryptography"):
+                                issuer_der = issuer_obj.to_cryptography().public_bytes(
+                                    serialization.Encoding.DER
+                                )
+                            else:
+                                issuer_der = bytes(issuer_obj)
 
                         if leaf_x509 and issuer_der:
                             issuer_x509 = x509.load_der_x509_certificate(issuer_der)
@@ -389,7 +434,6 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
                             )
 
                             if ocsp_endpoints:
-                                # Query the primary OCSP responder
                                 status, reason = check_ocsp_revocation(
                                     leaf_x509,
                                     issuer_x509,
@@ -410,7 +454,6 @@ def extract_cert_data(host, port, sni, timeout, verify_cert):
                 record["ocsp_responders"] = ocsp_endpoints
                 record["crl_distribution_points"] = crl_endpoints
 
-                # If certificate has been explicitly revoked, override overall status
                 if revocation_status == "REVOKED":
                     record["status"] = "REVOKED"
 
@@ -439,7 +482,6 @@ def resolve_csv_path(filename):
     if os.path.isabs(filename) and os.path.isfile(filename):
         return filename
 
-    # Resolve relative to TA app root / lookups
     app_root = os.path.dirname(BIND_DIR)
     lookup_path = os.path.join(app_root, "lookups", filename)
     if os.path.isfile(lookup_path):
@@ -460,14 +502,14 @@ def load_targets_from_csv(csv_path):
                     continue
                 try:
                     port = int(row.get("port", 443))
-                except ValueError:
+                except (ValueError, TypeError):
                     port = 443
 
                 sni = row.get("sni", "").strip() or host
 
                 try:
                     timeout = min(float(row.get("timeout", 10)), 30.0)
-                except ValueError:
+                except (ValueError, TypeError):
                     timeout = 10.0
 
                 verify_cert = str(row.get("verify_cert", "true")).lower() in (
@@ -499,6 +541,7 @@ def run_input():
     root = ET.fromstring(config_str)
 
     sys.stdout.write("<stream>\n")
+    sys.stdout.flush()
 
     for input_node in root.findall(".//configuration/stanza"):
         stanza_name = input_node.get("name", "")
@@ -507,22 +550,20 @@ def run_input():
         for param in input_node.findall("param"):
             params[param.get("name")] = param.text
 
-        # =========================================================================
-        # 1. READ GENERAL / DEFAULT PARAMETERS
-        # =========================================================================
         csv_file = params.get("targets_csv")
         target_host = params.get("target_host")
+        index_name = params.get("index") or "ssl_cert"
 
         try:
             port = int(params.get("port", 443))
-        except ValueError:
+        except (ValueError, TypeError):
             port = 443
 
         sni = params.get("sni") or target_host
 
         try:
             timeout = min(float(params.get("timeout", 10)), 30.0)
-        except ValueError:
+        except (ValueError, TypeError):
             timeout = 10.0
 
         verify_cert = str(params.get("verify_cert", "true")).lower() in (
@@ -531,9 +572,6 @@ def run_input():
             "yes",
         )
 
-        # =========================================================================
-        # 2. BUILD THE LIST OF TARGETS (CSV BULK MODE vs SINGLE TARGET MODE)
-        # =========================================================================
         targets = []
 
         if csv_file and csv_file.strip():
@@ -550,7 +588,7 @@ def run_input():
                 {
                     "target_host": target_host.strip(),
                     "port": port,
-                    "sni": sni,
+                    "sni": sni.strip() if sni else target_host.strip(),
                     "timeout": timeout,
                     "verify_cert": verify_cert,
                 }
@@ -561,20 +599,32 @@ def run_input():
             )
             continue
 
-        # =========================================================================
-        # 3. EXECUTE CHECKS & STREAM XML EVENTS
-        # =========================================================================
-        for t in targets:
-            cert_data = extract_cert_data(
-                t["target_host"], t["port"], t["sni"], t["timeout"], t["verify_cert"]
-            )
-
-            sys.stdout.write("<event>\n")
-            sys.stdout.write(f"<stanza>{stanza_name}</stanza>\n")
-            sys.stdout.write("<sourcetype>cert:ssl:json</sourcetype>\n")
-            sys.stdout.write(f"<data><![CDATA[{json.dumps(cert_data)}]]></data>\n")
-            sys.stdout.write("</event>\n")
-            sys.stdout.flush()
+        for target in targets:
+            try:
+                cert_data = extract_cert_data(
+                    target.get("target_host"),
+                    target.get("port"),
+                    target.get("sni"),
+                    target.get("timeout"),
+                    target.get("verify_cert"),
+                )
+                output_event(stanza_name, cert_data, index=index_name)
+            except Exception as exc:
+                log_err(
+                    f"Inspection error for {target.get('target_host')}:{target.get('port')}: {exc}"
+                )
+                err_event = {
+                    "target_host": target.get("target_host"),
+                    "port": target.get("port"),
+                    "dest": target.get("target_host"),
+                    "dest_port": target.get("port"),
+                    "sni": target.get("sni"),
+                    "status": "ERROR",
+                    "error_message": str(exc),
+                    "days_remaining": None,
+                    "valid_to": None,
+                }
+                output_event(stanza_name, err_event, index=index_name)
 
     sys.stdout.write("</stream>\n")
     sys.stdout.flush()
@@ -591,18 +641,12 @@ def validate_arguments():
     csv_file = params.get("targets_csv")
     host = params.get("target_host")
 
-    # =========================================================================
-    # 1. ENSURE AT LEAST ONE TARGET MECHANISM IS DEFINED
-    # =========================================================================
     if not (csv_file and csv_file.strip()) and not (host and host.strip()):
         sys.stderr.write(
             "Validation error: Either 'targets_csv' or 'target_host' must be specified.\n"
         )
         sys.exit(1)
 
-    # =========================================================================
-    # 2. VALIDATE CSV PATH (IF PROVIDED)
-    # =========================================================================
     if csv_file and csv_file.strip():
         resolved_path = resolve_csv_path(csv_file.strip())
         if not resolved_path:
@@ -611,18 +655,12 @@ def validate_arguments():
             )
             sys.exit(1)
 
-    # =========================================================================
-    # 3. VALIDATE SINGLE TARGET HOST (IF PROVIDED)
-    # =========================================================================
     if host and host.strip():
         prohibited, reason = is_prohibited_ip(host.strip())
         if prohibited:
             sys.stderr.write(f"Validation error: {reason}\n")
             sys.exit(1)
 
-    # =========================================================================
-    # 4. VALIDATE PORT & TIMEOUT RANGES
-    # =========================================================================
     port = params.get("port")
     if port:
         try:
@@ -662,6 +700,37 @@ def print_scheme():
     except FileNotFoundError:
         log_err(f"Schema file not found at: {scheme_path}")
         sys.exit(1)
+
+
+def output_event(
+    stanza_name,
+    data_dict,
+    index=None,
+    sourcetype="cert:ssl:json",
+    source="cert_checker",
+):
+    """
+    Emits an XML event conforming strictly to Splunk's Modular Input Streaming specification.
+    """
+    raw_payload = json.dumps(data_dict)
+    escaped_data = saxutils.escape(raw_payload)
+    escaped_stanza = saxutils.escape(stanza_name)
+
+    event_xml = [f'<event stanza="{escaped_stanza}" unbroken="1">']
+
+    if index:
+        event_xml.append(f"  <index>{saxutils.escape(index)}</index>")
+    if sourcetype:
+        event_xml.append(f"  <sourcetype>{saxutils.escape(sourcetype)}</sourcetype>")
+    if source:
+        event_xml.append(f"  <source>{saxutils.escape(source)}</source>")
+
+    event_xml.append(f"  <data>{escaped_data}</data>")
+    event_xml.append("  <done/>")
+    event_xml.append("</event>")
+
+    sys.stdout.write("".join(event_xml) + "\n")
+    sys.stdout.flush()
 
 
 if __name__ == "__main__":
