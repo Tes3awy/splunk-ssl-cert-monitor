@@ -1,6 +1,24 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [2.0.0] - 2026-10-03
+
+### Bug Fixes
+
+- *(ci)* Remove pip cache lookup in setup-python action
+
+- *(ci)* Use correct PyPI package splunk_add_on_ucc_framework
+
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v1.3.2 [skip ci]
+
+
+### Features
+
+- *(core)* Complete v2.0.0 migration for Splunk Cloud and UCC standards
+
 ## [1.3.2] - 2026-10-01
 
 ### Bug Fixes
