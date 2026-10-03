@@ -1,6 +1,17 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [2.0.1] - 2026-10-03
+
+### Bug Fixes
+
+- *(ta)* Add bin/lib path fallback and harden input error handling
+
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v2.0.0 [skip ci]
+
 ## [2.0.0] - 2026-10-03
 
 ### Bug Fixes
