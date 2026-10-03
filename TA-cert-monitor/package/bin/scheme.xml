@@ -1,8 +1,8 @@
 <scheme>
     <title>SSL/TLS Certificate Monitor</title>
     <description>Monitors SSL/TLS certificate expirations, trust chains, and cipher suites.</description>
-    <use_external_validation>true</use_external_validation>
     <streaming_mode>xml</streaming_mode>
+    <use_external_validation>true</use_external_validation>
     <use_single_instance>true</use_single_instance>
     <endpoint>
         <args>

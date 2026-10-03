@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Splunk Modular Alert Action: SSL Expiration Webhook
 Dispatches structured search results for expiring certificates to an external webhook.
+Version: 2.0.0
 """
 
 import gzip
@@ -12,9 +14,10 @@ import sys
 import urllib.parse
 import urllib.request
 
-# Inject vendored lib directory for solnlib
-BIND_DIR = os.path.dirname(os.path.abspath(__file__))
-LIB_DIR = os.path.join(BIND_DIR, "lib")
+# Inject app-level vendored lib directory for solnlib
+BIN_DIR = os.path.dirname(os.path.abspath(__file__))
+APP_DIR = os.path.dirname(BIN_DIR)
+LIB_DIR = os.path.join(APP_DIR, "lib")
 if os.path.exists(LIB_DIR) and LIB_DIR not in sys.path:
     sys.path.insert(0, LIB_DIR)
 
@@ -52,18 +55,15 @@ def send_webhook(payload):
     results_file = payload.get("results_file")
     sid = payload.get("sid", "")
 
-    # Optional: Read raw results from Splunk dispatch file if present
+    # Read sample records from Splunk dispatch file if present
     results_summary = []
     if results_file and os.path.exists(results_file):
         try:
-            # Splunk alert results are typically gzipped CSV or raw text
             open_func = gzip.open if results_file.endswith(".gz") else open
             with open_func(
                 results_file, "rt", encoding="utf-8", errors="replace"
             ) as rf:
-                # Read the first 25 rows as summary sample
-                lines = [line.strip() for line in rf][:25]
-                results_summary = lines
+                results_summary = [line.strip() for line in rf][:25]
         except Exception as read_err:
             logger.warning(f"Could not parse results_file {results_file}: {read_err}")
 
@@ -83,7 +83,7 @@ def send_webhook(payload):
         data=body_bytes,
         headers={
             "Content-Type": "application/json",
-            "User-Agent": "Splunk-TA-cert-monitor-Webhook/1.1.0",
+            "User-Agent": "Splunk-TA-cert-monitor-Webhook/2.0.0",
         },
     )
 
@@ -114,6 +114,7 @@ if __name__ == "__main__":
             sys.exit(1)
     else:
         print(
-            "FATAL: cert_alert_webhook must be invoked with --execute", file=sys.stderr
+            "FATAL: cert_alert_webhook must be invoked with --execute",
+            file=sys.stderr,
         )
         sys.exit(1)

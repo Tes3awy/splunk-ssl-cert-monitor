@@ -1,5 +1,5 @@
 [tool.bumpversion]
-current_version = "1.3.2"
+current_version = "2.0.0"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"
@@ -16,16 +16,26 @@ commit = true
 message = "chore(release): bump version {current_version} -> {new_version}"
 commit_args = ""
 
-# --- TA-cert-monitor ---
+# --- TA-cert-monitor (UCC Source & Manifest) ---
 [[tool.bumpversion.files]]
-filename = "TA-cert-monitor/default/app.conf"
+filename = "TA-cert-monitor/package/default/app.conf"
 search = "version = {current_version}"
 replace = "version = {new_version}"
 
 [[tool.bumpversion.files]]
-filename = "TA-cert-monitor/app.manifest"
+filename = "TA-cert-monitor/package/app.manifest"
 search = '"version": "{current_version}"'
 replace = '"version": "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "TA-cert-monitor/globalConfig.json"
+search = '"version": "{current_version}"'
+replace = '"version": "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "TA-cert-monitor/package/bin/cert_alert_webhook.py"
+search = "Splunk-TA-cert-monitor-Webhook/{current_version}"
+replace = "Splunk-TA-cert-monitor-Webhook/{new_version}"
 
 # --- splunk-app-cert-monitor ---
 [[tool.bumpversion.files]]
@@ -37,3 +47,14 @@ replace = "version = {new_version}"
 filename = "splunk-app-cert-monitor/app.manifest"
 search = '"version": "{current_version}"'
 replace = '"version": "{new_version}"'
+
+# --- Root Documentation ---
+[[tool.bumpversion.files]]
+filename = "README.md"
+search = "TA-cert-monitor-{current_version}.tar.gz"
+replace = "TA-cert-monitor-{new_version}.tar.gz"
+
+[[tool.bumpversion.files]]
+filename = "README.md"
+search = "splunk-app-cert-monitor-{current_version}.tar.gz"
+replace = "splunk-app-cert-monitor-{new_version}.tar.gz"

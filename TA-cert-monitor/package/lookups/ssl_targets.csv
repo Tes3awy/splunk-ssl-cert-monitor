@@ -1,0 +1,4 @@
+dest,dest_port,sni
+example.com,443,example.com
+splunk.com,443,splunk.com
+expired.badssl.com,443,expired.badssl.com

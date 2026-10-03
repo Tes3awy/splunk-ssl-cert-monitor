@@ -1,6 +1,3 @@
-index = <string>
-* Index to store SSL certificate scan events into (default: ssl_cert).
-
 [cert_checker://<name>]
 * Modular input for monitoring SSL/TLS certificates and endpoints.
 
@@ -9,6 +6,9 @@ python.version = <string>
 
 python.required = <string>
 * Target Python version for Splunk Cloud compatibility (e.g. 3.13).
+
+index = <string>
+* Index to store SSL certificate scan events into (default: ssl_cert).
 
 interval = <string>
 * How often to execute the check, in seconds or as a cron schedule string.

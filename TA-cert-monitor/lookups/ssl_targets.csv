@@ -1,4 +1,0 @@
-target_host,port,sni,verify_cert,timeout
-api.github.com,443,api.github.com,true,10
-splunk.com,443,splunk.com,true,10
-expired.badssl.com,443,expired.badssl.com,false,5

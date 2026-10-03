@@ -1,9 +1,10 @@
 <form class="form-horizontal form-complex">
     <div class="control-group">
-        <label class="control-label" for="cert_alert_webhook_url">Webhook URL</label>
+        <label class="control-label" for="cert_alert_webhook_url">Webhook URL <span class="required">*</span></label>
         <div class="controls">
-            <input type="text" name="action.cert_alert_webhook.param.webhook_url" id="cert_alert_webhook_url"
-                placeholder="https://hooks.slack.com/... or https://api.opsgenie.com/..." class="input-xlarge" />
+            <input type="url" name="action.cert_alert_webhook.param.webhook_url" id="cert_alert_webhook_url"
+                placeholder="https://hooks.slack.com/... or https://api.opsgenie.com/..." pattern="https://.*"
+                required="required" class="input-xlarge" />
             <span class="help-block">Target endpoint. Must begin with <code>https://</code>.</span>
         </div>
     </div>
@@ -17,6 +18,7 @@
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
             </select>
+            <span class="help-block">Assign a severity tag sent in the webhook payload.</span>
         </div>
     </div>
 </form>

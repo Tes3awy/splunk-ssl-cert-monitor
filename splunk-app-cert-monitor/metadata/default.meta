@@ -1,28 +1,20 @@
-# Global default permissions for all knowledge objects in this app
+# Application-level export
 []
 access = read : [ * ], write : [ admin, sc_admin ]
-export = none
+export = system
 
-### Views / Dashboards ###
 [views]
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system
 
-### Navigation Bar ###
 [nav]
 access = read : [ * ], write : [ admin, sc_admin ]
-export = none
+export = system
 
-### Macros ###
-[macros]
+[savedsearches]
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system
 
-[macros/ssl_cert_index]
-access = read : [ * ], write : [ admin ]
-export = system
-
-### Saved Searches & Pre-packaged Alerts ###
-[savedsearches]
+[macros]
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system

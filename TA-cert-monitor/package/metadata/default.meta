@@ -3,6 +3,11 @@
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system
 
+### inputs.conf configuration ACL
+[inputs]
+access = read : [ * ], write : [ admin, sc_admin ]
+export = system
+
 ### Eventtypes and Tags (CIM Certificates Normalization) ###
 [eventtypes]
 access = read : [ * ], write : [ admin, sc_admin ]
@@ -22,10 +27,19 @@ export = system
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system
 
+### Custom Index & Macro Definitions ###
 [indexes/ssl_cert]
-access = read : [ * ], write : [ admin ]
+access = read : [ * ], write : [ admin, sc_admin ]
 export = system
 
 [macros/ssl_cert_index]
-access = read : [ * ], write : [ admin ]
+access = read : [ * ], write : [ admin, sc_admin ]
+export = system
+
+[lookups/ssl_targets.csv]
+access = read : [ * ], write : [ admin, sc_admin ]
+export = system
+
+[transforms/ssl_targets]
+access = read : [ * ], write : [ admin, sc_admin ]
 export = system

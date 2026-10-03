@@ -18,19 +18,9 @@ permissions:
   contents: read
 
 jobs:
-  build-and-inspect:
-    name: Slim Package & AppInspect Linter
+  inspect-ta:
+    name: Build & Inspect TA-cert-monitor
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        app:
-          - folder: "TA-cert-monitor"
-            artifact_name: "TA-cert-monitor"
-          - folder: "splunk-app-cert-monitor"
-            artifact_name: "splunk-app-cert-monitor"
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -43,84 +33,141 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install addonfactory-ucc-generator splunk-appinspect
+
+      - name: Clean Source Artifacts
+        run: |
+          find TA-cert-monitor -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+          find TA-cert-monitor -type f -name "*.py[co]" -delete 2>/dev/null || true
+          find TA-cert-monitor -type f -name ".DS_Store" -delete 2>/dev/null || true
+
+      - name: Build with UCC
+        run: |
+          cd TA-cert-monitor
+          ucc-gen build --ta-version 2.0.0
+          # Clean any stray test/bin artifacts in vendored lib if present
+          rm -rf output/TA-cert-monitor/lib/bin 2>/dev/null || true
+
+      - name: Package with UCC
+        run: |
+          cd TA-cert-monitor
+          ucc-gen package --path output/TA-cert-monitor
+          mkdir -p ../dist
+          mv TA-cert-monitor-*.tar.gz ../dist/TA-cert-monitor.tar.gz
+
+      - name: Execute Splunk AppInspect on TA
+        run: |
+          mkdir -p inspect-reports
+          splunk-appinspect inspect dist/TA-cert-monitor.tar.gz \
+            --mode precert \
+            --included-tags splunk_appinspect || true
+
+          splunk-appinspect inspect dist/TA-cert-monitor.tar.gz \
+            --mode precert \
+            --included-tags splunk_appinspect \
+            --output-file inspect-reports/TA-cert-monitor-report.json \
+            --data-format json
+
+      - name: Verify Zero Failures
+        run: |
+          python -c '
+          import json, sys
+          with open("inspect-reports/TA-cert-monitor-report.json", "r") as f:
+              data = json.load(f)
+          summary = data.get("summary", {})
+          failures = summary.get("failure", 0)
+          errors = summary.get("error", 0)
+          print(f"TA-cert-monitor Results -> Errors: {errors}, Failures: {failures}")
+          if failures > 0 or errors > 0:
+              sys.exit(1)
+          '
+
+      - name: Upload TA Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inspect-ta-artifacts
+          path: |
+            dist/TA-cert-monitor.tar.gz
+            inspect-reports/TA-cert-monitor-report.json
+
+  inspect-app:
+    name: Build & Inspect splunk-app-cert-monitor
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install System Dependencies (libmagic)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmagic1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
 
       - name: Install Packaging & Inspection Tooling
         run: |
           python -m pip install --upgrade pip
           pip install splunk-packaging-toolkit splunk-appinspect
 
-      - name: Clean Temporary & System Artifacts
+      - name: Clean Source Artifacts
         run: |
-          find ${{ matrix.app.folder }} -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-          find ${{ matrix.app.folder }} -type f -name "*.py[co]" -delete 2>/dev/null || true
-          find ${{ matrix.app.folder }} -type f -name ".DS_Store" -delete 2>/dev/null || true
-
-      - name: Clean Vendored Artifacts
-        run: |
-          find TA-cert-monitor/bin/lib -type d -name "*.dist-info" -exec rm -rf {} + 2>/dev/null || true
-          find TA-cert-monitor/bin/lib -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
-          find TA-cert-monitor/ -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+          find splunk-app-cert-monitor -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+          find splunk-app-cert-monitor -type f -name "*.py[co]" -delete 2>/dev/null || true
+          find splunk-app-cert-monitor -type f -name ".DS_Store" -delete 2>/dev/null || true
 
       - name: Validate App Structure with Slim
         run: |
-          slim validate ${{ matrix.app.folder }}
+          slim validate splunk-app-cert-monitor
 
       - name: Build Package Archive with Slim
         run: |
           mkdir -p dist
-          slim package -o dist/ ${{ matrix.app.folder }}
-          # Normalize filename for downstream inspection and artifact upload
-          mv dist/${{ matrix.app.artifact_name }}-*.tar.gz ${{ matrix.app.artifact_name }}.tar.gz
+          slim package -o dist/ splunk-app-cert-monitor
+          mv dist/splunk-app-cert-monitor-*.tar.gz dist/splunk-app-cert-monitor.tar.gz
 
-      - name: Execute Splunk AppInspect
+      - name: Execute Splunk AppInspect on App
         run: |
           mkdir -p inspect-reports
-
-          # 1. Output summary directly to console logs
-          splunk-appinspect inspect ${{ matrix.app.artifact_name }}.tar.gz \
+          splunk-appinspect inspect dist/splunk-app-cert-monitor.tar.gz \
             --mode precert \
             --included-tags splunk_appinspect || true
 
-          # 2. Generate JSON report for programmatic check
-          splunk-appinspect inspect ${{ matrix.app.artifact_name }}.tar.gz \
+          splunk-appinspect inspect dist/splunk-app-cert-monitor.tar.gz \
             --mode precert \
             --included-tags splunk_appinspect \
-            --output-file inspect-reports/${{ matrix.app.artifact_name }}-report.json \
-            --data-format json || true
+            --output-file inspect-reports/splunk-app-cert-monitor-report.json \
+            --data-format json
 
-      - name: Verify Zero AppInspect Failures
+      - name: Verify Zero Failures
         run: |
           python -c '
           import json, sys
-
-          report_path = "inspect-reports/${{ matrix.app.artifact_name }}-report.json"
-          with open(report_path, "r") as f:
+          with open("inspect-reports/splunk-app-cert-monitor-report.json", "r") as f:
               data = json.load(f)
-
           summary = data.get("summary", {})
           failures = summary.get("failure", 0)
           errors = summary.get("error", 0)
-          warnings = summary.get("warning", 0)
-          manual_checks = summary.get("manual_check", 0)
-
-          print(f"AppInspect Summary for ${{ matrix.app.artifact_name }}:")
-          print(f" - Failures:      {failures}")
-          print(f" - Errors:        {errors}")
-          print(f" - Warnings:      {warnings}")
-          print(f" - Manual Checks: {manual_checks}")
-
+          print(f"splunk-app-cert-monitor Results -> Errors: {errors}, Failures: {failures}")
           if failures > 0 or errors > 0:
-              print("\n[ERROR] AppInspect reported failures or structural errors. Review log above.")
               sys.exit(1)
           '
 
-      - name: Upload Built Package & Inspection Reports
+      - name: Upload App Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: release-artifacts-${{ matrix.app.artifact_name }}
+          name: inspect-app-artifacts
           path: |
-            ${{ matrix.app.artifact_name }}.tar.gz
-            inspect-reports/
-          retention-days: 14
+            dist/splunk-app-cert-monitor.tar.gz
+            inspect-reports/splunk-app-cert-monitor-report.json

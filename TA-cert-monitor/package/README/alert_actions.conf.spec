@@ -9,4 +9,4 @@ param.webhook_url = <string>
 * HTTPS destination URL where payload JSON will be posted.
 
 param.severity = <string>
-* Severity level override for the outgoing alert.
+* Severity level override for the outgoing alert (critical, warning, info).

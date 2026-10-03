@@ -22,25 +22,30 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
+          cache: "pip"
 
-      - name: Install Tooling (Slim & Git-Cliff)
+      - name: Install Tooling
         run: |
           python -m pip install --upgrade pip
-          pip install splunk-packaging-toolkit git-cliff
+          pip install addonfactory-ucc-generator splunk-packaging-toolkit git-cliff
 
-      - name: Build Tarballs with Slim
+      - name: Build & Package TA-cert-monitor with UCC
         run: |
           mkdir -p dist
-          slim package -o dist/ TA-cert-monitor
+          cd TA-cert-monitor
+          ucc-gen build --ta-version "${GITHUB_REF_NAME#v}"
+          rm -rf output/TA-cert-monitor/lib/bin 2>/dev/null || true
+          ucc-gen package --path output/TA-cert-monitor
+          mv TA-cert-monitor-*.tar.gz ../dist/
+
+      - name: Build splunk-app-cert-monitor with Slim
+        run: |
           slim package -o dist/ splunk-app-cert-monitor
 
       - name: Generate Changelog
         run: |
-          # Generate release notes for this specific release
           git-cliff --latest --strip header > RELEASE_NOTES.md
-
-          # Update the full CHANGELOG.md in the repo
           git-cliff --output CHANGELOG.md
 
       - name: Commit and Push Updated CHANGELOG.md
@@ -49,7 +54,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
           git commit -m "docs(changelog): update CHANGELOG.md for ${{ github.ref_name }} [skip ci]" || echo "No changes to commit"
-          git push origin HEAD:main
+          git push origin HEAD:main || true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

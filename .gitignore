@@ -175,6 +175,13 @@ local/
 local.meta
 *.log
 
+### Splunk Universal Configuration Console (UCC) ###
+# UCC Generator Build Outputs & Working Dirs
+output/
+.ucc/
+*.tar.gz
+*.spl
+
 ### VisualStudioCode ###
 .vscode/*
 !.vscode/settings.json
