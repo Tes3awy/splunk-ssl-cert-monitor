@@ -27,7 +27,7 @@ jobs:
       - name: Install Tooling
         run: |
           python -m pip install --upgrade pip
-          pip install addonfactory-ucc-generator splunk-packaging-toolkit git-cliff
+          pip install splunk_add_on_ucc_framework splunk-packaging-toolkit git-cliff
 
       - name: Build & Package TA-cert-monitor with UCC
         run: |
