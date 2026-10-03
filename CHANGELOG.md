@@ -9,10 +9,14 @@ All notable changes to this project will be documented in this file.
 
 - *(ci)* Use correct PyPI package splunk_add_on_ucc_framework
 
+- *(ci)* Invoke appinspect via python -m splunk_appinspect.main
+
 
 ### Documentation
 
 - *(changelog)* Update CHANGELOG.md for v1.3.2 [skip ci]
+
+- *(changelog)* Update CHANGELOG.md for v2.0.0 [skip ci]
 
 
 ### Features
