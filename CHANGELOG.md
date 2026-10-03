@@ -9,10 +9,14 @@ All notable changes to this project will be documented in this file.
 
 - *(ta)* Correct props.conf CIM mappings and evaluations
 
+- *(ta)* Finalize props.conf, inputs.conf defaults, and spec definitions
+
 
 ### Documentation
 
 - *(changelog)* Update CHANGELOG.md for v2.0.0 [skip ci]
+
+- *(changelog)* Update CHANGELOG.md for v2.0.1 [skip ci]
 
 - *(changelog)* Update CHANGELOG.md for v2.0.1 [skip ci]
 
