@@ -38,7 +38,7 @@ jobs:
       - name: Install Tooling
         run: |
           python -m pip install --upgrade pip
-          pip install splunk_add_on_ucc_framework splunk-packaging-toolkit git-cliff
+          pip install splunk_add_on_ucc_framework splunk-packaging-toolkit splunk-appinspect git-cliff
 
       - name: Clean Source Artifacts
         run: |
@@ -63,11 +63,11 @@ jobs:
       - name: Execute Splunk AppInspect on TA
         run: |
           mkdir -p inspect-reports
-          python -m splunk_appinspect.main inspect dist/TA-cert-monitor.tar.gz \
+          $pythonLocation/bin/splunk-appinspect inspect dist/TA-cert-monitor.tar.gz \
             --mode precert \
             --included-tags splunk_appinspect || true
 
-          python -m splunk_appinspect.main inspect dist/TA-cert-monitor.tar.gz \
+          $pythonLocation/bin/splunk-appinspect inspect dist/TA-cert-monitor.tar.gz \
             --mode precert \
             --included-tags splunk_appinspect \
             --output-file inspect-reports/TA-cert-monitor-report.json \
@@ -137,11 +137,11 @@ jobs:
       - name: Execute Splunk AppInspect on App
         run: |
           mkdir -p inspect-reports
-          python -m splunk_appinspect.main inspect dist/splunk-app-cert-monitor.tar.gz \
+          $pythonLocation/bin/splunk-appinspect inspect dist/splunk-app-cert-monitor.tar.gz \
             --mode precert \
             --included-tags splunk_appinspect || true
 
-          python -m splunk_appinspect.main inspect dist/splunk-app-cert-monitor.tar.gz \
+          $pythonLocation/bin/splunk-appinspect inspect dist/splunk-app-cert-monitor.tar.gz \
             --mode precert \
             --included-tags splunk_appinspect \
             --output-file inspect-reports/splunk-app-cert-monitor-report.json \
