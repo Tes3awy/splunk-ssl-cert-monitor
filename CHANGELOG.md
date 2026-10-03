@@ -11,10 +11,14 @@ All notable changes to this project will be documented in this file.
 
 - *(ta)* Finalize props.conf, inputs.conf defaults, and spec definitions
 
+- *(ta)* Declare python.version = python3 in inputs.conf for AppInspect compliance
+
 
 ### Documentation
 
 - *(changelog)* Update CHANGELOG.md for v2.0.0 [skip ci]
+
+- *(changelog)* Update CHANGELOG.md for v2.0.1 [skip ci]
 
 - *(changelog)* Update CHANGELOG.md for v2.0.1 [skip ci]
 
