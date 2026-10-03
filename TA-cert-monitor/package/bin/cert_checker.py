@@ -16,12 +16,16 @@ import sys
 import urllib.parse
 import urllib.request
 
-# Ensure vendored libraries in ../lib are in path
-app_bin_dir = os.path.dirname(os.path.realpath(__file__))
-app_root_dir = os.path.dirname(app_bin_dir)
-lib_dir = os.path.join(app_root_dir, "lib")
-if lib_dir not in sys.path:
-    sys.path.insert(0, lib_dir)
+BIN_DIR = os.path.dirname(os.path.abspath(__file__))
+APP_DIR = os.path.dirname(BIN_DIR)
+LIB_DIRS = [
+    os.path.join(APP_DIR, "lib"),
+    os.path.join(BIN_DIR, "lib"),
+]
+
+for lib_dir in LIB_DIRS:
+    if os.path.isdir(lib_dir) and lib_dir not in sys.path:
+        sys.path.insert(0, lib_dir)
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -193,7 +197,7 @@ def check_ocsp_status(leaf_cert, issuer_cert=None, proxy_url=None, timeout=5):
         return {"revocation_status": "ERROR", "reason": str(e)}
 
 
-class CertChecker(Script):
+class CertChecker(smi.Script):
     def get_scheme(self):
         scheme = smi.Scheme("Certificate Endpoint")
         scheme.description = "Audits SSL/TLS certificates, expiry dates, trust chains, and OCSP revocation."
@@ -326,9 +330,17 @@ class CertChecker(Script):
 
         for input_name, input_item in inputs.inputs.items():
             target_host = input_item.get("target_host", "").strip()
-            port = int(input_item.get("port", 443))
+
+            raw_port = input_item.get("port")
+            port = int(raw_port) if raw_port and str(raw_port).strip() else 443
+
             sni = input_item.get("sni") or target_host
-            timeout = int(input_item.get("timeout", 10))
+
+            raw_timeout = input_item.get("timeout")
+            timeout = (
+                int(raw_timeout) if raw_timeout and str(raw_timeout).strip() else 10
+            )
+
             verify_cert = str(input_item.get("verify_cert", "false")).lower() in (
                 "1",
                 "true",
@@ -423,10 +435,11 @@ class CertChecker(Script):
                 else:
                     record["status"] = "VALID"
 
-                # Signature Details
-                record["signature_algorithm"] = cert.signature_algorithm_oid._name
+                sig_oid = cert.signature_algorithm_oid
+                record["signature_algorithm"] = getattr(
+                    sig_oid, "_name", sig_oid.dotted_string
+                )
 
-                # OCSP Revocation Evaluation
                 record["revocation_status"] = "NOT_EVALUATED"
                 record["revocation_reason"] = None
 

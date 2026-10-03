@@ -36,9 +36,9 @@
             "uri": null
         },
         "releaseNotes": {
-            "name": "README",
-            "text": "README.md",
-            "uri": "https://github.com/Tes3awy/splunk-ssl-cert-monitor"
+            "name": null,
+            "text": null,
+            "uri": "https://github.com/Tes3awy/splunk-ssl-cert-monitor/releases"
         }
     },
     "dependencies": null,

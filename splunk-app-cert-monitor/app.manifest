@@ -36,7 +36,12 @@
       "name": null,
       "text": null,
       "uri": null
-    }
+    },
+    "releaseNotes": {
+        "name": null,
+        "text": null,
+        "uri": "https://github.com/Tes3awy/splunk-ssl-cert-monitor/releases"
+      }
   },
   "dependencies": null,
   "tasks": null,

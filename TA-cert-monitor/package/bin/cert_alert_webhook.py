@@ -14,107 +14,148 @@ import sys
 import urllib.parse
 import urllib.request
 
-# Inject app-level vendored lib directory for solnlib
 BIN_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_DIR = os.path.dirname(BIN_DIR)
-LIB_DIR = os.path.join(APP_DIR, "lib")
-if os.path.exists(LIB_DIR) and LIB_DIR not in sys.path:
-    sys.path.insert(0, LIB_DIR)
+LIB_DIRS = [
+    os.path.join(APP_DIR, "lib"),
+    os.path.join(BIN_DIR, "lib"),
+]
 
-try:
-    from solnlib import log
+for lib_dir in LIB_DIRS:
+    if os.path.isdir(lib_dir) and lib_dir not in sys.path:
+        sys.path.insert(0, lib_dir)
 
-    logger = log.Logs().get_logger("cert_alert_webhook")
-except ImportError:
-    import logging
+from solnlib import log
 
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
-    )
-    logger = logging.getLogger("cert_alert_webhook")
+logger = log.Logs().get_logger("ta_cert_monitor_alert_webhook")
 
 
-def send_webhook(payload):
-    config = payload.get("configuration", {})
-    webhook_url = config.get("webhook_url")
+def read_search_results(results_file):
+    """
+    Reads search results from Splunk's passed gzipped results file.
+    Returns a list of parsed row dictionaries.
+    """
+    if not results_file or not os.path.exists(results_file):
+        return []
 
-    if not webhook_url:
-        logger.error("Configuration missing: param.webhook_url is empty.")
-        return 1
+    records = []
+    try:
+        import csv
 
-    parsed_url = urllib.parse.urlparse(webhook_url)
-    if parsed_url.scheme != "https":
-        logger.error(
-            f"Insecure URL scheme '{parsed_url.scheme}'. Only HTTPS endpoints are permitted."
-        )
-        return 2
-
-    # Extract alert metadata provided by Splunk
-    search_name = payload.get("search_name", "SSL Certificate Alert")
-    severity = config.get("severity", "critical")
-    results_file = payload.get("results_file")
-    sid = payload.get("sid", "")
-
-    # Read sample records from Splunk dispatch file if present
-    results_summary = []
-    if results_file and os.path.exists(results_file):
+        with gzip.open(
+            results_file, mode="rt", encoding="utf-8", errors="replace"
+        ) as gz_file:
+            reader = csv.DictReader(gz_file)
+            for row in reader:
+                records.append(row)
+    except Exception as exc:
+        logger.warning(f"Could not parse results_file as gzipped CSV: {exc}")
         try:
-            open_func = gzip.open if results_file.endswith(".gz") else open
-            with open_func(
-                results_file, "rt", encoding="utf-8", errors="replace"
-            ) as rf:
-                results_summary = [line.strip() for line in rf][:25]
-        except Exception as read_err:
-            logger.warning(f"Could not parse results_file {results_file}: {read_err}")
+            with open(results_file, mode="r", encoding="utf-8", errors="replace") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    records.append(row)
+        except Exception as fallback_exc:
+            logger.error(f"Failed to read results file: {fallback_exc}")
 
-    alert_data = {
-        "source": "Splunk TA-cert-monitor",
-        "search_name": search_name,
-        "sid": sid,
-        "severity": severity,
-        "app": payload.get("app", "TA-cert-monitor"),
-        "owner": payload.get("owner", "nobody"),
-        "sample_records": results_summary,
+    return records
+
+
+def send_webhook(url, payload, timeout=15):
+    """
+    Sends JSON payload to the specified HTTPS endpoint with strict TLS verification.
+    """
+    parsed_url = urllib.parse.urlparse(url)
+    if parsed_url.scheme.lower() != "https":
+        raise ValueError(
+            f"Insecure protocol rejected: '{parsed_url.scheme}'. Only HTTPS is permitted."
+        )
+
+    data_bytes = json.dumps(payload).encode("utf-8")
+
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "User-Agent": "Splunk-TA-cert-monitor-Webhook/2.0.0",
+        "Accept": "application/json",
     }
 
-    body_bytes = json.dumps(alert_data).encode("utf-8")
-    req = urllib.request.Request(
-        webhook_url,
-        data=body_bytes,
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": "Splunk-TA-cert-monitor-Webhook/2.0.0",
-        },
-    )
+    # Enforce strict TLS 1.2+ verification with system CA trust store
+    ssl_context = ssl.create_default_context()
+    ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+
+    req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
 
     try:
-        ctx = ssl.create_default_context()
-        with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
+        with urllib.request.urlopen(
+            req, timeout=timeout, context=ssl_context
+        ) as response:
+            status_code = response.getcode()
+            response_body = response.read().decode("utf-8", errors="replace")
             logger.info(
-                f"Alert webhook delivered successfully to {webhook_url}, status={resp.status}"
+                f"Successfully posted alert to webhook. HTTP Status: {status_code}"
             )
-            return 0
+            return status_code, response_body
+    except urllib.error.HTTPError as http_err:
+        logger.error(
+            f"HTTP error posting to webhook: {http_err.code} - {http_err.reason}"
+        )
+        raise
+    except urllib.error.URLError as url_err:
+        logger.error(f"Network error posting to webhook: {url_err.reason}")
+        raise
+
+
+def main():
+    logger.info("Initializing cert_alert_webhook action...")
+
+    if len(sys.argv) < 2 or sys.argv[1] != "--execute":
+        logger.error("Modular alert script must be invoked with '--execute'")
+        sys.exit(1)
+
+    try:
+        raw_payload = sys.stdin.read()
+        if not raw_payload.strip():
+            logger.error("No configuration payload received on STDIN.")
+            sys.exit(2)
+
+        config = json.loads(raw_payload)
     except Exception as exc:
-        logger.error(f"Failed to deliver alert webhook: {exc}")
-        return 3
+        logger.error(f"Failed to parse alert action configuration from STDIN: {exc}")
+        sys.exit(3)
+
+    configuration = config.get("configuration", {})
+    webhook_url = configuration.get("webhook_url")
+    severity = configuration.get("severity", "high")
+    results_file = config.get("results_file")
+    search_name = config.get("search_name", "SSL Certificate Alert")
+    app_name = config.get("app", "TA-cert-monitor")
+
+    if not webhook_url:
+        logger.error("Execution failed: 'webhook_url' parameter is missing or empty.")
+        sys.exit(4)
+
+    results = read_search_results(results_file)
+
+    outbound_payload = {
+        "event_type": "ssl_certificate_alert",
+        "search_name": search_name,
+        "app": app_name,
+        "severity": severity,
+        "result_count": len(results),
+        "results": results[:50],
+        "server_uri": config.get("server_uri", ""),
+        "owner": config.get("owner", ""),
+    }
+
+    try:
+        send_webhook(webhook_url, outbound_payload)
+    except Exception as exc:
+        logger.error(f"Webhook dispatch failed: {exc}")
+        sys.exit(5)
+
+    logger.info("cert_alert_webhook finished successfully.")
+    sys.exit(0)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "--execute":
-        try:
-            raw_input_data = sys.stdin.read()
-            if not raw_input_data.strip():
-                logger.error("No JSON payload received on stdin.")
-                sys.exit(1)
-
-            payload_data = json.loads(raw_input_data)
-            sys.exit(send_webhook(payload_data))
-        except Exception as e:
-            logger.error(f"Unhandled exception during alert action execution: {e}")
-            sys.exit(1)
-    else:
-        print(
-            "FATAL: cert_alert_webhook must be invoked with --execute",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    main()
