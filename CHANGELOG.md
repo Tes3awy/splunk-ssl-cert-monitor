@@ -7,10 +7,14 @@ All notable changes to this project will be documented in this file.
 
 - *(ta)* Add bin/lib path fallback and harden input error handling
 
+- *(ta)* Correct props.conf CIM mappings and evaluations
+
 
 ### Documentation
 
 - *(changelog)* Update CHANGELOG.md for v2.0.0 [skip ci]
+
+- *(changelog)* Update CHANGELOG.md for v2.0.1 [skip ci]
 
 ## [2.0.0] - 2026-10-03
 
