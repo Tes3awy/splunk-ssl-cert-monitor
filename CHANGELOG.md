@@ -11,10 +11,14 @@ All notable changes to this project will be documented in this file.
 
 - *(ci)* Invoke appinspect via python -m splunk_appinspect.main
 
+- *(ci)* Invoke splunk-appinspect directly via pythonLocation bin path
+
 
 ### Documentation
 
 - *(changelog)* Update CHANGELOG.md for v1.3.2 [skip ci]
+
+- *(changelog)* Update CHANGELOG.md for v2.0.0 [skip ci]
 
 - *(changelog)* Update CHANGELOG.md for v2.0.0 [skip ci]
 
