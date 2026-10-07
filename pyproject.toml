@@ -1,0 +1,47 @@
+[project]
+name = "Splunk_SSL_Certificate_Monitor"
+version = "2.1.0"
+description = "Enterprise Search App for SSL/TLS Certificate expiration, security compliance, chain auditing, and alerts."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache" }
+authors = [{ name = "Osama Abbas", email = "osama.abbas@bmbgroup.com" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "splunk-add-on-ucc-framework>=6.6.0",
+    "splunk-appinspect>=4.3.1",
+    "cryptography==50.0.2",
+    "splunk-sdk==3.0.1",
+    "splunktaucclib==8.2.0",
+    "splunk-packaging-toolkit==1.2.8",
+    "solnlib==8.1.1",
+    "requests==2.34.2",
+    "certifi==2026.7.22",
+    "charset-normalizer==3.5.2",
+    "idna==3.20",
+]
+
+[project.optional-dependencies]
+# Extra dependencies installed via `pip install .[dev]`
+dev = [
+    "black>=26.5.1",
+    "isort>=9.0.2",
+    "bandit>=1.9.4",
+    "pip-audit>=2.10.1",
+    "ruff>=0.16.10",
+    "bump-my-version>=1.5.1",
+    "pre-commit>=4.6.2",
+]
+
+[tool.bandit]
+targets = ["TA-cert-monitor/package/bin"]
+exclude_dirs = ["tests", "package/bin/lib", "package/lib"]
+skips = ["B101"]
+
+[tool.bandit.assert_used]
+skips = ["*_test.py", "test_*.py"]

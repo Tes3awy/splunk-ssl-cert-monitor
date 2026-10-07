@@ -1,6 +1,8 @@
 [![Splunkbase](https://img.shields.io/badge/Splunkbase-TA--cert--monitor-blue.svg)](https://splunkbase.splunk.com/app/9906)
 [![Splunkbase](https://img.shields.io/badge/Splunkbase-splunk--app--cert--monitor-brightgreen.svg)](https://splunkbase.splunk.com/app/9907)
 [![Splunk AppInspect CI](https://github.com/Tes3awy/splunk-ssl-cert-monitor/actions/workflows/appinspect.yml/badge.svg)](https://github.com/Tes3awy/splunk-ssl-cert-monitor/actions/workflows/appinspect.yml)
+[![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
+
 
 # SSL / TLS Certificate Monitor App & Technology Add-on
 
@@ -43,8 +45,8 @@ This solution is split into two modular packages following Splunk architectural 
 
 1. Log in to your Splunk Search Head or Heavy Forwarder as an administrator.
 2. Navigate to **Apps > Manage Apps > Install App from File**.
-3. Upload `TA-cert-monitor-2.0.1.tar.gz` and click **Upload**.
-4. Repeat the process to upload `splunk-app-cert-monitor-2.0.1.tar.gz`.
+3. Upload `TA-cert-monitor-<Major.Minor.Patch>.tar.gz` and click **Upload**.
+4. Repeat the process to upload `splunk-app-cert-monitor-<Major.Minor.Patch>.tar.gz`.
 5. Restart Splunk if prompted.
 
 ### Option 2: Command Line (CLI)
@@ -52,8 +54,8 @@ This solution is split into two modular packages following Splunk architectural 
 Extract both packages into `$SPLUNK_HOME/etc/apps/`:
 
 ```bash
-tar -xzvf TA-cert-monitor-2.0.1.tar.gz -C $SPLUNK_HOME/etc/apps/
-tar -xzvf splunk-app-cert-monitor-2.0.1.tar.gz -C $SPLUNK_HOME/etc/apps/
+tar -xzvf TA-cert-monitor-<Major.Minor.Patch>.tar.gz -C $SPLUNK_HOME/etc/apps/
+tar -xzvf splunk-app-cert-monitor-<Major.Minor.Patch>.tar.gz -C $SPLUNK_HOME/etc/apps/
 $SPLUNK_HOME/bin/splunk restart
 ```
 
@@ -79,6 +81,7 @@ By default, the dashboard and alerts search using the `ssl_cert_index` macro (de
    - SNI: Server Name Indication string (defaults to Target Host if left blank).
    - Interval: Polling frequency in seconds (e.g., `86400` for once every 24 hours).
    - Strict Root Verification: Check `true` for standard CA trust validation. Leave unchecked (`false`) to audit internal PKI or self-signed certs.
+   - Audit Legacy Protocols: Actively probe the endpoint for deprecated TLS 1.0 and TLS 1.1 support.
    - Index: Choose your destination index.
 
 ## Via `inputs.conf` Directly
@@ -90,10 +93,9 @@ port = 443
 sni = portal.example.com
 interval = 43200
 verify_cert = true
+audit_legacy_protocols = true
 timeout = 10
 index = ssl_cert
-python.version = python3
-python.required = 3.13
 
 [cert_checker://internal_microservice]
 target_host = 192.0.2.50
@@ -101,10 +103,9 @@ port = 8443
 sni = service.corp.local
 interval = 86400
 verify_cert = false
+audit_legacy_protocols = false
 timeout = 5
 index = ssl_cert
-python.version = python3
-python.required = 3.13
 ```
 
 ## Splunk Common Information Model (CIM) Mapping
@@ -117,20 +118,21 @@ python.required = 3.13
 | `dest_port`           | `dest_port`                              | Target TLS connection port                        |
 | `subject_cn`          | `ssl_subject`, `ssl_subject_common_name` | Certificate Common Name                           |
 | `subject_org`         | `ssl_subject_unit`                       | Subject organization                              |
-| `subject_alt_names{}` | `ssl_subject_alt_name`                   | Multivalue Subject Alternative Names (SANs)       |
+| `san_list{}`          | `ssl_subject_alt_name`                   | Multivalue Subject Alternative Names (SANs)       |
 | `issuer_org`          | `ssl_issuer`                             | Issuing Certificate Authority                     |
 | `issuer_cn`           | `ssl_issuer_common_name`                 | Issuer Common Name                                |
 | `serial_number`       | `ssl_serial`                             | Certificate serial number                         |
-| `ssl_cipher`          | `ssl_cipher`                             | Negotiated TLS cipher suite                       |
+| `cipher`              | `ssl_cipher`                             | Negotiated TLS cipher suite                       |
 | `valid_from`          | `ssl_start_time`                         | Validity start epoch                              |
 | `valid_to`            | `ssl_end_time`                           | Expiration date epoch                             |
 | `status`              | `ssl_is_valid`                           | `true` if valid, `false` if expired/revoked       |
 | `ssl_version`         | `ssl_version`                            | TLS protocol version (e.g., `TLSv1.3`, `TLSv1.2`) |
+| `has_legacy_tls`      | *Custom*                                 | True if endpoint accepts TLS 1.0/1.1              |
 
 ### Example CIM Search
 
 ```spl
-| datamodel Certificates search 
+| datamodel Certificates search
 | search Certificates.ssl_end_time=*
 | eval days_left = round((Certificates.ssl_end_time - now()) / 86400, 1)
 | table Certificates.dest, Certificates.ssl_subject, Certificates.ssl_issuer, days_left, Certificates.ssl_version

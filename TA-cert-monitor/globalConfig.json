@@ -164,7 +164,8 @@
                         },
                         {
                             "field": "sni",
-                            "label": "SNI (Server Name Indication)",
+                            "label": "SNI",
+                            "help": "Server Name Indication",
                             "type": "text",
                             "validators": [
                                 {
@@ -177,7 +178,7 @@
                         },
                         {
                             "field": "timeout",
-                            "label": "Connection Timeout (seconds)",
+                            "label": "Connection Timeout (in seconds)",
                             "type": "text",
                             "defaultValue": "10",
                             "validators": [
@@ -195,7 +196,16 @@
                             "field": "verify_cert",
                             "label": "Strict Root Verification",
                             "type": "checkbox",
-                            "defaultValue": false
+                            "defaultValue": false,
+                            "required": false
+                        },
+                        {
+                            "field": "audit_legacy_protocols",
+                            "label": "Audit Legacy Protocols",
+                            "help": "Actively probe the endpoint for deprecated TLS 1.0 and TLS 1.1 support.",
+                            "type": "checkbox",
+                            "defaultValue": false,
+                            "required": false
                         },
                         {
                             "field": "interval",
@@ -258,6 +268,10 @@
                         "field": "verify_cert"
                     },
                     {
+                        "label": "Audit Legacy Protocols",
+                        "field": "audit_legacy_protocols"
+                    },
+                    {
                         "label": "Index",
                         "field": "index"
                     },
@@ -283,12 +297,10 @@
         "displayName": "Splunk Add-on for SSL/TLS Certificate Monitoring",
         "name": "TA-cert-monitor",
         "restRoot": "ta_cert_monitor",
-        "version": "2.0.1",
+        "version": "2.1.0",
         "schemaVersion": "0.0.10",
         "supportedPythonVersion": [
-            "3.12",
-            "3.13",
-            "3.14"
+            "3.13"
         ],
         "supportedThemes": [
             "light",

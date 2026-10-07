@@ -1,0 +1,9 @@
+certifi==2026.7.22
+charset-normalizer==3.5.2
+cryptography==50.0.2
+idna==3.20
+requests==2.34.2
+solnlib==8.1.1
+splunk-packaging-toolkit==1.2.8
+splunk-sdk==3.0.1
+splunktaucclib==8.2.0

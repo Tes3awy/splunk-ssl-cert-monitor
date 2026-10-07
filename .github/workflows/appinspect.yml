@@ -139,11 +139,11 @@ jobs:
           mkdir -p inspect-reports
           $pythonLocation/bin/splunk-appinspect inspect dist/splunk-app-cert-monitor.tar.gz \
             --mode precert \
-            --included-tags splunk_appinspect || true
+            --included-tags splunk_appinspect,cloud || true
 
           $pythonLocation/bin/splunk-appinspect inspect dist/splunk-app-cert-monitor.tar.gz \
             --mode precert \
-            --included-tags splunk_appinspect \
+            --included-tags splunk_appinspect,cloud \
             --output-file inspect-reports/splunk-app-cert-monitor-report.json \
             --data-format json
 

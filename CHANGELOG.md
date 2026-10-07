@@ -124,4 +124,3 @@ All notable changes to this project will be documented in this file.
 ### Ci
 
 - Automate changelog generation and GitHub releases with git-cliff
-

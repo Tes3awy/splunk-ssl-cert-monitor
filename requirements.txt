@@ -1,0 +1,11 @@
+# Include the runtime/vendor requirements
+-r requirements-vendor.txt
+# Security Scanners & Linters
+bandit>=1.9.4
+bump-my-version>=1.5.1
+pip-audit>=2.10.1
+pre-commit>=4.6.2
+ruff>=0.16.10
+# Splunk Packaging & Validation Tools
+splunk-add-on-ucc-framework>=6.6.0
+splunk-appinspect>=4.3.1

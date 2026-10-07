@@ -1,4 +1,6 @@
 [cert_alert_webhook]
+* Modular alert action for posting certificate expiration notices to webhooks.
+
 python.version = <string>
 * Python interpreter to run the alert script.
 

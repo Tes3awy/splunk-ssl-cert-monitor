@@ -6,9 +6,9 @@ def additional_packaging(ta_name: str):
     """
     `build-ui.sh` builds custom component present in source code and ships them in the output directory
     """
-    if exists(join(dirname(realpath(__file__)), "build-ui.sh")):
-        system("chmod +x ./build-ui.sh")
-        return_code = system("./build-ui.sh")
+    if exists(join(dirname(realpath(__file__)), 'build-ui.sh')):
+        system('chmod +x ./build-ui.sh')
+        return_code = system('./build-ui.sh')
         if return_code != 0:
             _exit(WEXITSTATUS(return_code))
 
@@ -22,29 +22,29 @@ def cleanup_output_files(output_path: str, ta_name: str) -> None:
     """
     files_to_delete = []
     files_to_delete.append(
-        sep.join([output_path, ta_name, "default", "redundant.conf"])
+        sep.join([output_path, ta_name, 'default', 'redundant.conf'])
     )
     files_to_delete.append(
-        sep.join([output_path, ta_name, "bin", "template_modinput_layout.py"])
+        sep.join([output_path, ta_name, 'bin', 'template_modinput_layout.py'])
     )
     files_to_delete.append(
-        sep.join([output_path, ta_name, "bin", "example_one_input_one.py"])
+        sep.join([output_path, ta_name, 'bin', 'example_one_input_one.py'])
     )
     files_to_delete.append(
-        sep.join([output_path, ta_name, "bin", "template_rest_handler_script.py"])
+        sep.join([output_path, ta_name, 'bin', 'template_rest_handler_script.py'])
     )
     files_to_delete.append(
-        sep.join([output_path, ta_name, "bin", "file_does_not_exist.py"])
+        sep.join([output_path, ta_name, 'bin', 'file_does_not_exist.py'])
     )
     files_to_delete.append(
         sep.join(
             [
                 output_path,
                 ta_name,
-                "default",
-                "nav",
-                "views",
-                "file_copied_from_source_code.xml",
+                'default',
+                'nav',
+                'views',
+                'file_copied_from_source_code.xml',
             ]
         )
     )
