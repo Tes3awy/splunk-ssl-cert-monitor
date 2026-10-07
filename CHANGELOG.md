@@ -1,6 +1,22 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [2.1.0] - 2026-10-07
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v2.0.1 [skip ci]
+
+
+### Features
+
+- *(ta)* Implement legacy TLS auditing, unified SAN parsing, and fix OCSP proxy routing
+
+
+### Miscellaneous Tasks
+
+- Remove deleted app.conf from bumpversion tracking
+
 ## [2.0.1] - 2026-10-03
 
 ### Bug Fixes
@@ -124,3 +140,4 @@ All notable changes to this project will be documented in this file.
 ### Ci
 
 - Automate changelog generation and GitHub releases with git-cliff
+
