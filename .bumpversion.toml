@@ -18,11 +18,6 @@ commit_args = ""
 
 # --- TA-cert-monitor (UCC Source & Manifest) ---
 [[tool.bumpversion.files]]
-filename = "TA-cert-monitor/package/default/app.conf"
-search = "version = {current_version}"
-replace = "version = {new_version}"
-
-[[tool.bumpversion.files]]
 filename = "TA-cert-monitor/package/app.manifest"
 search = '"version": "{current_version}"'
 replace = '"version": "{new_version}"'
