@@ -1,7 +1,7 @@
 # Global default for TA knowledge objects
 []
-access = read : [ * ], write : [ admin, sc_admin ]
-export = system
+access = read : [ * ], write : [ admin, power ]
+export = none
 
 ### inputs.conf configuration ACL
 [inputs]
@@ -47,3 +47,10 @@ export = system
 [transforms/ssl_targets]
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system
+
+[savedsearches]
+access = read : [ * ], write : [ admin, sc_admin ]
+export = none
+
+[viewstates]
+access = read : [ * ], write : [ * ]

@@ -1,5 +1,5 @@
 <dashboard version="1.1" theme="dark">
-  <label>SSL / TLS Security Audit</label>
+  <label>Security Audit</label>
   <description>Audit weak ciphers, deprecated TLS protocols, self-signed certificates, and
     revocation anomalies.</description>
 
@@ -81,17 +81,18 @@
         <title>Revocation &amp; Endpoint Handshake Failure Log</title>
         <search>
           <query>
-            `ssl_cert_index` `ssl_cert_sourcetype` (status="REVOKED" OR status="CONNECTION_ERROR" OR
-            revocation_status="REVOKED")
+            `ssl_cert_index` `ssl_cert_sourcetype`
+            (status!="VALID" AND status!="EXPIRING_WARNING" AND status!="EXPIRING_CRITICAL") OR
+            revocation_status="REVOKED"
             | stats count,
             latest(status) as status,
             latest(revocation_status) as revocation_status,
             latest(revocation_reason) as revocation_reason,
-            latest(error_message) as error_message,
+            latest(error) as error_message,
             latest(_time) as last_seen
             by dest, dest_port, sni
             | eval Endpoint=dest . ":" . dest_port,
-            Issue_Detail=coalesce(revocation_reason, error_message, "Unknown Failure"),
+            Issue_Detail=coalesce(revocation_reason, error_message, status, "Unknown Failure"),
             last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S UTC")
             | sort - count
             | table Endpoint, sni, status, revocation_status, Issue_Detail, count, last_seen

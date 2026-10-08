@@ -23,12 +23,10 @@
                                 {
                                     "type": "regex",
                                     "pattern": "^([a-zA-Z0-9.-]+|([0-9]{1,3}\\.){3}[0-9]{1,3})$",
-                                    "errorMsg": "Please provide a valid hostname or IP address."
+                                    "errorMsg": "Please provide a valid hostname or IP address without protocol schemes (http/https)."
                                 }
                             ],
-                            "help": {
-                                "text": "Proxy Host / IP"
-                            }
+                            "help": "Hostname or IP address of the proxy server."
                         },
                         {
                             "field": "proxy_port",
@@ -38,17 +36,16 @@
                             "validators": [
                                 {
                                     "type": "number",
-                                    "errorMsg": "Input must a number.",
+                                    "errorMsg": "Proxy port must be a valid port number between 1 and 65535.",
                                     "range": [
-                                        0,
+                                        1,
                                         65535
-                                    ]
+                                    ],
+                                    "isInteger": true
                                 }
                             ],
                             "required": false,
-                            "help": {
-                                "text": "Default value 8080"
-                            }
+                            "help": "Default proxy port is 8080."
                         },
                         {
                             "field": "proxy_username",
@@ -58,32 +55,20 @@
                             "validators": [
                                 {
                                     "type": "string",
-                                    "errorMsg": "Length of username should be between 3 and 30",
-                                    "minLength": 1,
-                                    "maxLength": 8192
+                                    "errorMsg": "Length of username should be between 3 and 64 characters.",
+                                    "minLength": 3,
+                                    "maxLength": 64
                                 }
                             ],
-                            "help": {
-                                "text": "Proxy Username"
-                            }
+                            "help": "Username for proxy authentication (optional)."
                         },
                         {
                             "field": "proxy_password",
                             "label": "Proxy Password",
                             "type": "text",
-                            "validators": [
-                                {
-                                    "type": "string",
-                                    "errorMsg": "Length of Password should be between 1 and 8192",
-                                    "minLength": 1,
-                                    "maxLength": 8192
-                                }
-                            ],
                             "encrypted": true,
                             "required": false,
-                            "help": {
-                                "text": "Proxy Password"
-                            }
+                            "help": "Password for proxy authentication (optional)."
                         }
                     ]
                 },
@@ -105,6 +90,8 @@
                     }
                 ]
             },
+            "capabilities": {},
+            "useInputToggleConfirmation": true,
             "services": [
                 {
                     "template": "input_with_helper",
@@ -136,12 +123,18 @@
                             "field": "name",
                             "label": "Name",
                             "required": true,
+                            "help": "Unique stanza name (alphanumeric characters, hyphens, and underscores only).",
                             "validators": [
                                 {
+                                    "type": "regex",
+                                    "pattern": "^[a-zA-Z0-9_.-]+$",
+                                    "errorMsg": "Name can only contain alphanumeric characters, underscores, dots, and hyphens."
+                                },
+                                {
                                     "type": "string",
-                                    "errorMsg": "Length of Name should be between 1 and 8192",
                                     "minLength": 1,
-                                    "maxLength": 8192
+                                    "maxLength": 128,
+                                    "errorMsg": "Name length must be between 1 and 128 characters."
                                 }
                             ]
                         },
@@ -150,12 +143,12 @@
                             "field": "target_host",
                             "label": "Target Host / IP",
                             "required": true,
+                            "help": "Fully qualified domain name or IP (e.g., example.com, not https://example.com).",
                             "validators": [
                                 {
-                                    "type": "string",
-                                    "errorMsg": "Length of input should be between 1 and 8192",
-                                    "minLength": 1,
-                                    "maxLength": 8192
+                                    "type": "regex",
+                                    "pattern": "^([a-zA-Z0-9.-]+|([0-9]{1,3}\\.){3}[0-9]{1,3})$",
+                                    "errorMsg": "Please provide a valid hostname or IP address without protocol schemes."
                                 }
                             ]
                         },
@@ -168,11 +161,12 @@
                             "validators": [
                                 {
                                     "type": "number",
-                                    "errorMsg": "Input must a number.",
+                                    "errorMsg": "Port must be a valid number between 1 and 65535.",
                                     "range": [
                                         1,
                                         65535
-                                    ]
+                                    ],
+                                    "isInteger": true
                                 }
                             ]
                         },
@@ -180,13 +174,13 @@
                             "type": "text",
                             "field": "sni",
                             "label": "SNI",
-                            "help": "Server Name Indication",
+                            "help": "Server Name Indication hostname (optional, defaults to Target Host if omitted).",
                             "validators": [
                                 {
                                     "type": "string",
-                                    "errorMsg": "Length of SNI should be between 1 and 8192",
+                                    "errorMsg": "SNI length must be between 1 and 255 characters.",
                                     "minLength": 1,
-                                    "maxLength": 8192
+                                    "maxLength": 255
                                 }
                             ]
                         },
@@ -194,16 +188,17 @@
                             "type": "text",
                             "field": "timeout",
                             "label": "Connection Timeout",
-                            "help": "in seconds",
+                            "help": "Connection timeout in seconds.",
                             "defaultValue": "10",
                             "validators": [
                                 {
                                     "type": "number",
-                                    "errorMsg": "Input must a number.",
+                                    "errorMsg": "Timeout must be between 5 and 300 seconds.",
                                     "range": [
-                                        10,
-                                        1200
-                                    ]
+                                        5,
+                                        300
+                                    ],
+                                    "isInteger": true
                                 }
                             ]
                         },
@@ -211,6 +206,7 @@
                             "type": "checkbox",
                             "field": "verify_cert",
                             "label": "Strict Root Verification",
+                            "help": "Enforce strict root CA trust path validation against system trust store.",
                             "defaultValue": false,
                             "required": false
                         },
@@ -226,7 +222,7 @@
                             "type": "interval",
                             "field": "interval",
                             "label": "Scan Interval",
-                            "help": "in seconds",
+                            "help": "Polling interval in seconds (default is 86400 / 24 hours).",
                             "defaultValue": "86400",
                             "required": true
                         }
@@ -257,7 +253,11 @@
                     },
                     {
                         "label": "Status",
-                        "field": "disabled"
+                        "field": "disabled",
+                        "mapping": {
+                            "true": "Inactive",
+                            "false": "Active"
+                        }
                     }
                 ],
                 "moreInfo": [
@@ -276,18 +276,6 @@
                     {
                         "label": "Audit Legacy Protocols",
                         "field": "audit_legacy_protocols"
-                    },
-                    {
-                        "label": "Index",
-                        "field": "index"
-                    },
-                    {
-                        "label": "Status",
-                        "field": "disabled",
-                        "mapping": {
-                            "true": "Disabled",
-                            "false": "Enabled"
-                        }
                     }
                 ],
                 "actions": [

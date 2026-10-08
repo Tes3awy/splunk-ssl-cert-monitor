@@ -1,5 +1,5 @@
 <form version="1.1" theme="dark">
-  <label>SSL/TLS Certificate Executive Overview</label>
+  <label>Executive Overview</label>
   <description>Real-time lifecycle monitoring, trust chain audit, and revocation analysis.</description>
 
   <fieldset submitButton="false" autoRun="true">
@@ -124,7 +124,13 @@
       <chart>
         <title>TLS Versions &amp; Cipher Suites</title>
         <search>
-          <query>`ssl_cert_index` `ssl_cert_sourcetype` ssl_version=*
+          <query>`ssl_cert_index` `ssl_cert_sourcetype`
+            | search ssl_version=* ssl_cipher=*
+            | where isnotnull(ssl_version) AND isnotnull(ssl_cipher)
+            AND ssl_version!="" AND ssl_cipher!=""
+            AND ssl_version!="null" AND ssl_cipher!="null"
+            | stats latest(ssl_version) as ssl_version, latest(ssl_cipher) as ssl_cipher by dest,
+            dest_port
             | chart count over ssl_version by ssl_cipher</query>
           <earliest>$time_tok.earliest$</earliest>
           <latest>$time_tok.latest$</latest>

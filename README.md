@@ -1,6 +1,8 @@
-[![Splunkbase](https://img.shields.io/badge/Splunkbase-TA--cert--monitor-blue.svg)](https://splunkbase.splunk.com/app/9906)
-[![Splunkbase](https://img.shields.io/badge/Splunkbase-splunk--app--cert--monitor-brightgreen.svg)](https://splunkbase.splunk.com/app/9907)
+![Splunk](https://img.shields.io/badge/splunk-%23000000.svg?style=for-the-badge&logo=splunk&logoColor=white&logoSize=auto)
+![GitHub License](https://img.shields.io/github/license/Tes3awy/splunk-ssl-cert-monitor)
 [![Splunk AppInspect CI](https://github.com/Tes3awy/splunk-ssl-cert-monitor/actions/workflows/appinspect.yml/badge.svg)](https://github.com/Tes3awy/splunk-ssl-cert-monitor/actions/workflows/appinspect.yml)
+![Splunkbase Add-On Downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fsplunkbasebadge.livehybrid.com%2Fv1%2Fdownloads%2F9906&label=Splunk%20Add-On%20Downloads)
+![Splunkbase App Downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fsplunkbasebadge.livehybrid.com%2Fv1%2Fdownloads%2F9907&label=Splunk%20App%20Downloads)
 [![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 
 

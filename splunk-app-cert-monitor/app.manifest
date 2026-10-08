@@ -3,8 +3,8 @@
     "info": {
         "title": "SSL/TLS Certificate Monitor App",
         "id": {
-            "group": null,
-            "name": "splunk-app-cert-monitor",
+            "group": "splunk-app",
+            "name": "cert-monitor",
             "version": "2.1.4"
         },
         "author": [
@@ -14,14 +14,14 @@
                 "company": "bmbgroup.com"
             }
         ],
-        "description": "An Enterprise Search App for SSL/TLS Certificate expiration, security compliance, chain auditing, and alerts.",
+        "description": "A Splunk Enterprise App for SSL/TLS Certificate expiration, security compliance, chain auditing, and alerts.",
         "classification": {
             "categories": [
                 "Security, Fraud & Compliance",
                 "IT Operations"
             ],
             "developmentStatus": "Production/Stable",
-            "intendedAudience": "IT Operations"
+            "intendedAudience": "IT Professionals"
         },
         "commonInformationModels": null,
         "license": {
@@ -41,11 +41,20 @@
             "uri": "https://github.com/Tes3awy/splunk-ssl-cert-monitor/releases"
         }
     },
-    "dependencies": null,
+    "dependencies": {
+        "TA-cert-monitor": {
+            "version": "<=2.1.4",
+            "optional": true
+        }
+    },
     "tasks": null,
     "inputGroups": null,
     "incompatibleApps": null,
-    "platformRequirements": null,
+    "platformRequirements": {
+        "splunk": {
+            "Enterprise": "<10"
+        }
+    },
     "supportedDeployments": [
         "_standalone",
         "_distributed",
