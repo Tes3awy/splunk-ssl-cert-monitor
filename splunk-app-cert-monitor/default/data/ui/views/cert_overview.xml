@@ -125,7 +125,7 @@
         <title>TLS Versions &amp; Cipher Suites</title>
         <search>
           <query>`ssl_cert_index` `ssl_cert_sourcetype` ssl_version=*
-            | stats count by ssl_version, ssl_cipher</query>
+            | chart count over ssl_version by ssl_cipher</query>
           <earliest>$time_tok.earliest$</earliest>
           <latest>$time_tok.latest$</latest>
         </search>
