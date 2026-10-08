@@ -1,6 +1,21 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [2.1.1] - 2026-10-08
+
+### Bug Fixes
+
+- *(ta)* Bundle missing dependencies and enable UI visibility
+
+- *(ci)* Correct .bumpversion current_version
+
+- *(ta)* Bundle missing dependencies, enable UI visibility, and fix date parsing
+
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v2.1.0 [skip ci]
+
 ## [2.1.0] - 2026-10-07
 
 ### Documentation
