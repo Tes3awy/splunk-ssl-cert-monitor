@@ -1,6 +1,6 @@
 [project]
 name = "Splunk_SSL_Certificate_Monitor"
-version = "2.1.4"
+version = "2.1.5"
 description = "Enterprise Search App for SSL/TLS Certificate expiration, security compliance, chain auditing, and alerts."
 readme = "README.md"
 requires-python = ">=3.9"

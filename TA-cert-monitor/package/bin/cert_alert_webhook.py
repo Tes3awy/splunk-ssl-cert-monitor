@@ -74,7 +74,7 @@ def send_webhook(url, payload, timeout=15):
 
     headers = {
         "Content-Type": "application/json; charset=utf-8",
-        "User-Agent": "Splunk-TA-cert-monitor-Webhook/2.1.4",
+        "User-Agent": "Splunk-TA-cert-monitor-Webhook/2.1.5",
         "Accept": "application/json",
     }
 
