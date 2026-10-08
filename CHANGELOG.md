@@ -13,10 +13,18 @@ All notable changes to this project will be documented in this file.
 
 - *(ta)* Resolve web.conf AppInspect validation error
 
+- *(ta)* Resolve web.conf AppInspect validation error
+
+- *(ta)* Remove duplicate eval in props.conf and fix dashboard chart SPL
+
+- *(ta)* Remove duplicate eval in props.conf and fix dashboard chart SPL
+
 
 ### Documentation
 
 - *(changelog)* Update CHANGELOG.md for v2.1.0 [skip ci]
+
+- *(changelog)* Update CHANGELOG.md for v2.1.1 [skip ci]
 
 - *(changelog)* Update CHANGELOG.md for v2.1.1 [skip ci]
 
