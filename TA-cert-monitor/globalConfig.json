@@ -93,7 +93,7 @@
             ]
         },
         "inputs": {
-            "title": "Certificate Probes",
+            "title": "SSL Certificate Probes",
             "description": "Manage active TLS/SSL endpoint monitoring targets.",
             "subDescription": {
                 "text": "Ingesting data from to Splunk Enterprise?\nRead my [[wikiPost]] to learn more",
@@ -156,7 +156,7 @@
                                     "type": "number",
                                     "errorMsg": "Input must a number.",
                                     "range": [
-                                        0,
+                                        1,
                                         65535
                                     ]
                                 }
@@ -178,7 +178,8 @@
                         },
                         {
                             "field": "timeout",
-                            "label": "Connection Timeout (in seconds)",
+                            "label": "Connection Timeout",
+                            "help": "in seconds",
                             "type": "text",
                             "defaultValue": "10",
                             "validators": [
@@ -209,7 +210,8 @@
                         },
                         {
                             "field": "interval",
-                            "label": "Scan Interval (seconds)",
+                            "label": "Scan Interval",
+                            "help": "in seconds",
                             "type": "text",
                             "defaultValue": "86400",
                             "required": true,
@@ -285,10 +287,10 @@
                     }
                 ],
                 "actions": [
+                    "search",
                     "edit",
                     "clone",
-                    "delete",
-                    "search"
+                    "delete"
                 ]
             }
         }
@@ -297,20 +299,21 @@
         "displayName": "Splunk Add-on for SSL/TLS Certificate Monitoring",
         "name": "TA-cert-monitor",
         "restRoot": "ta_cert_monitor",
-        "version": "2.1.0",
+        "version": "2.1.1",
         "schemaVersion": "0.0.10",
-        "supportedPythonVersion": [
-            "3.13"
-        ],
+        "hideUCCVersion": false,
+        "checkForUpdates": true,
+        "defaultView": "inputs",
+        "navColor": "#0072C6",
         "supportedThemes": [
             "light",
             "dark"
         ],
-        "defaultView": "configuration",
-        "checkForUpdates": true,
-        "hideUCCVersion": false,
-        "navColor": "#65A637",
-        "isVisible": false,
+        "supportedPythonVersion": [
+            "3.9",
+            "3.13"
+        ],
+        "isVisible": true,
         "showFooter": true
     }
 }

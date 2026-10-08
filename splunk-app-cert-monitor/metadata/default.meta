@@ -11,6 +11,10 @@ export = system
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system
 
+[html]
+access = read : [ * ], write : [ admin, sc_admin ]
+export = system
+
 [savedsearches]
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system

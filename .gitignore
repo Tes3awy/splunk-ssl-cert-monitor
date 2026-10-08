@@ -178,6 +178,7 @@ local.meta
 ### Splunk Universal Configuration Console (UCC) ###
 # UCC Generator Build Outputs & Working Dirs
 output/
+!output/**/lib/requirements.txt
 .ucc/
 *.tar.gz
 *.spl

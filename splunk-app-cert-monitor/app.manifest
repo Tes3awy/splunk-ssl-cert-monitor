@@ -3,34 +3,29 @@
   "info": {
     "title": "SSL/TLS Certificate Monitor App",
     "id": {
-      "group": null,
-      "name": "splunk-app-cert-monitor",
+      "group": "splunk-app",
+      "name": "cert-monitor",
       "version": "2.1.0"
     },
     "author": [
       {
-        "company": "bmbgroup.com",
         "name": "Osama Abbas",
-        "email": "osama.abbas@bmbgroup.com"
+        "email": null,
+        "company": null
       }
     ],
     "releaseDate": null,
     "description": "Enterprise Search App for SSL/TLS Certificate expiration, security compliance, chain auditing, and alerts.",
     "classification": {
-      "intendedAudience": "IT Operations",
-      "categories": [
-        "Security, Fraud & Compliance",
-        "IT Operations"
-      ],
-      "developmentStatus": "Production/Stable"
+      "intendedAudience": null,
+      "categories": [],
+      "developmentStatus": null
     },
-    "commonInformationModels": {
-      "Certificates": ">=4.20.0"
-    },
+    "commonInformationModels": null,
     "license": {
-      "name": "Apache-2.0",
+      "name": null,
       "text": null,
-      "uri": "https://www.apache.org/licenses/LICENSE-2.0"
+      "uri": null
     },
     "privacyPolicy": {
       "name": null,
@@ -38,21 +33,19 @@
       "uri": null
     },
     "releaseNotes": {
-        "name": null,
-        "text": null,
-        "uri": "https://github.com/Tes3awy/splunk-ssl-cert-monitor/releases"
-      }
+      "name": null,
+      "text": null,
+      "uri": null
+    }
   },
   "dependencies": null,
   "tasks": null,
   "inputGroups": null,
   "incompatibleApps": null,
+  "platformRequirements": null,
   "supportedDeployments": [
     "_standalone",
-    "_distributed",
-    "_search_head_clustering"
+    "_distributed"
   ],
-  "targetWorkloads": [
-    "_search_heads"
-  ]
+  "targetWorkloads": null
 }
