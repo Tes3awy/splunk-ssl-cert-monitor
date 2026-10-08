@@ -1,6 +1,17 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [2.1.4] - 2026-10-08
+
+### Bug Fixes
+
+- *(ta)* Add evaluation for ssl version
+
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v2.1.3 [skip ci]
+
 ## [2.1.3] - 2026-10-08
 
 ### Bug Fixes
