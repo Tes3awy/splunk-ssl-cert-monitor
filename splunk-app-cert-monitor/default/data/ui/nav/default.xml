@@ -1,8 +1,14 @@
 <nav search_view="search" color="#0072C6">
-    <view name="cert_overview" default="true" />
-    <view name="cert_audit" />
+    <view name="welcome" default="true" />
     <view name="search" />
+    <collection label="Saved searches">
+        <saved source="all" />
+    </collection>
+    <view name="analytics_workspace" />
     <view name="reports" />
     <view name="datasets" />
     <view name="alerts" />
+    <view name="cert_overview" />
+    <view name="cert_audit" />
+    <view name="dashboards" />
 </nav>
