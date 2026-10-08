@@ -29,6 +29,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install splunk_add_on_ucc_framework splunk-packaging-toolkit git-cliff
 
+      - name: Clean old packages
+        run: rm -f *.tar.gz
+
       - name: Build & Package TA-cert-monitor with UCC
         run: |
           mkdir -p dist
