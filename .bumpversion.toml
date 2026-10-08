@@ -18,6 +18,11 @@ commit_args = ""
 
 # --- TA-cert-monitor (UCC Source & Manifest) ---
 [[tool.bumpversion.files]]
+filename = "TA-cert-monitor/package/bin/cert_checker.py"
+search = 'Version: {current_version}'
+replace = 'Version: {new_version}'
+
+[[tool.bumpversion.files]]
 filename = "TA-cert-monitor/package/app.manifest"
 search = '"version": "{current_version}"'
 replace = '"version": "{new_version}"'
@@ -53,3 +58,9 @@ replace = "TA-cert-monitor-{new_version}.tar.gz"
 filename = "README.md"
 search = "splunk-app-cert-monitor-{current_version}.tar.gz"
 replace = "splunk-app-cert-monitor-{new_version}.tar.gz"
+
+# --- Other Files ---
+[[tool.bumpversion.files]]
+filename = "pyrpject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'

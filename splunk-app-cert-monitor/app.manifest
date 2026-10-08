@@ -3,9 +3,8 @@
   "info": {
     "title": "SSL/TLS Certificate Monitor App",
     "id": {
-      "group": "splunk-app",
-      "name": "cert-monitor",
-      "version": "2.1.0"
+      "name": "splunk-app-cert-monitor",
+      "version": "2.1.1"
     },
     "author": [
       {
