@@ -1,6 +1,17 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [2.1.2] - 2026-10-08
+
+### Bug Fixes
+
+- *(ta)* Fix invalid app.manifest format
+
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v2.1.1 [skip ci]
+
 ## [2.1.1] - 2026-10-08
 
 ### Bug Fixes
@@ -167,3 +178,4 @@ All notable changes to this project will be documented in this file.
 ### Ci
 
 - Automate changelog generation and GitHub releases with git-cliff
+
