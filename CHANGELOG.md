@@ -1,6 +1,17 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [2.1.3] - 2026-10-08
+
+### Bug Fixes
+
+- Enforce cert:ssl:json sourcetype and session_key metadata retrieval
+
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v2.1.2 [skip ci]
+
 ## [2.1.2] - 2026-10-08
 
 ### Bug Fixes
