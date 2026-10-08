@@ -12,6 +12,8 @@ All notable changes to this project will be documented in this file.
 
 - *(changelog)* Update CHANGELOG.md for v2.1.2 [skip ci]
 
+- *(changelog)* Update CHANGELOG.md for v2.1.3
+
 ## [2.1.2] - 2026-10-08
 
 ### Bug Fixes
