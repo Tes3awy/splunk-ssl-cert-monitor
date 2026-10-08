@@ -11,10 +11,14 @@ All notable changes to this project will be documented in this file.
 
 - *(ta)* Bundle missing dependencies, enable UI visibility, and fix date parsing
 
+- *(ta)* Resolve web.conf AppInspect validation error
+
 
 ### Documentation
 
 - *(changelog)* Update CHANGELOG.md for v2.1.0 [skip ci]
+
+- *(changelog)* Update CHANGELOG.md for v2.1.1 [skip ci]
 
 ## [2.1.0] - 2026-10-07
 
