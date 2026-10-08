@@ -1,11 +1,11 @@
 {
     "schemaVersion": "2.0.0",
     "info": {
-        "title": "SSL Certificate Monitor Add-on",
+        "title": "SSL/TLS Certificate Monitor Add-on",
         "id": {
             "group": null,
             "name": "TA-cert-monitor",
-            "version": "2.1.1"
+            "version": "2.1.2"
         },
         "author": [
             {
@@ -14,15 +14,14 @@
                 "company": "bmbgroup.com"
             }
         ],
-        "releaseDate": null,
         "description": "Technology Add-on for collecting SSL/TLS certificate metadata, SNI, ciphers, and expiration dates via modular input",
         "classification": {
-            "intendedAudience": "IT Operations",
             "categories": [
                 "Security, Fraud & Compliance",
                 "IT Operations"
             ],
-            "developmentStatus": "Production/Stable"
+            "developmentStatus": "Production/Stable",
+            "intendedAudience": "IT Operations"
         },
         "commonInformationModels": null,
         "license": {
@@ -35,6 +34,7 @@
             "text": null,
             "uri": null
         },
+        "releaseDate": null,
         "releaseNotes": {
             "name": null,
             "text": null,

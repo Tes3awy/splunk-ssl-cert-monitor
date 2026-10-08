@@ -2,7 +2,7 @@
 """
 Splunk Add-on for SSL/TLS Certificate Monitoring (TA-cert-monitor)
 Modular Input: cert_checker
-Version: 2.1.0
+Version: 2.1.2
 Description: Gathers certificate telemetry, validates validity lifecycles, parses Subject
 Alternative Names (SAN), and optionally audits legacy TLS protocol support.
 """
@@ -522,7 +522,7 @@ class CertChecker(smi.Script):
             raise ValueError('SNI value cannot exceed 255 characters.')
 
     def stream_events(self, inputs: smi.InputDefinition, ew: smi.EventWriter):
-        session_key = self._input_definition.metadata.get('session_key')
+        session_key = inputs.metadata.get('session_key')
         ucc_settings = get_ucc_settings(session_key)
         logger = logger_for_input(ucc_settings.get('loglevel'))
 

@@ -118,10 +118,10 @@
                     <li>Log in to your Splunk Search Head or Heavy Forwarder as an administrator.</li>
                     <li>Navigate to <strong>Apps &gt; Manage Apps &gt; Install App from File</strong>
                         .</li>
-                    <li>Upload <code>TA-cert-monitor-2.1.0.tar.gz</code> and click <strong>Upload</strong>
-                        .</li>
-                    <li>Repeat the process to upload <code>splunk-app-cert-monitor-2.1.0.tar.gz</code>
-                        .</li>
+                    <li>Upload <code>TA-cert-monitor-[Major.Minor.Patch].tar.gz</code> and click <strong>
+                        Upload</strong> .</li>
+                    <li>Repeat the process to upload <code>splunk-app-cert-monitor-[Major.Minor.Patch]
+                        .tar.gz</code> .</li>
                     <li>Restart Splunk if prompted.</li>
                 </ol>
                 <h3 id="option-2-command-line-cli-">Option 2: Command Line (CLI)</h3>

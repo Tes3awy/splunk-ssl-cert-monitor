@@ -1,50 +1,58 @@
 {
-  "schemaVersion": "2.0.0",
-  "info": {
-    "title": "SSL/TLS Certificate Monitor App",
-    "id": {
-      "name": "splunk-app-cert-monitor",
-      "version": "2.1.1"
+    "schemaVersion": "2.0.0",
+    "info": {
+        "title": "SSL/TLS Certificate Monitor App",
+        "id": {
+            "group": null,
+            "name": "splunk-app-cert-monitor",
+            "version": "2.1.2"
+        },
+        "author": [
+            {
+                "name": "Osama Abbas",
+                "email": "osama.abbas@bmbgroup.com",
+                "company": "bmbgroup.com"
+            }
+        ],
+        "description": "An Enterprise Search App for SSL/TLS Certificate expiration, security compliance, chain auditing, and alerts.",
+        "classification": {
+            "categories": [
+                "Security, Fraud & Compliance",
+                "IT Operations"
+            ],
+            "developmentStatus": "Production/Stable",
+            "intendedAudience": "IT Operations"
+        },
+        "commonInformationModels": null,
+        "license": {
+            "name": "Apache-2.0",
+            "text": "./LICENSES/LICENSE.txt",
+            "uri": "https://www.apache.org/licenses/LICENSE-2.0"
+        },
+        "privacyPolicy": {
+            "name": null,
+            "text": null,
+            "uri": null
+        },
+        "releaseDate": null,
+        "releaseNotes": {
+            "name": null,
+            "text": null,
+            "uri": "https://github.com/Tes3awy/splunk-ssl-cert-monitor/releases"
+        }
     },
-    "author": [
-      {
-        "name": "Osama Abbas",
-        "email": null,
-        "company": null
-      }
+    "dependencies": null,
+    "tasks": null,
+    "inputGroups": null,
+    "incompatibleApps": null,
+    "platformRequirements": null,
+    "supportedDeployments": [
+        "_standalone",
+        "_distributed",
+        "_search_head_clustering"
     ],
-    "releaseDate": null,
-    "description": "Enterprise Search App for SSL/TLS Certificate expiration, security compliance, chain auditing, and alerts.",
-    "classification": {
-      "intendedAudience": null,
-      "categories": [],
-      "developmentStatus": null
-    },
-    "commonInformationModels": null,
-    "license": {
-      "name": null,
-      "text": null,
-      "uri": null
-    },
-    "privacyPolicy": {
-      "name": null,
-      "text": null,
-      "uri": null
-    },
-    "releaseNotes": {
-      "name": null,
-      "text": null,
-      "uri": null
-    }
-  },
-  "dependencies": null,
-  "tasks": null,
-  "inputGroups": null,
-  "incompatibleApps": null,
-  "platformRequirements": null,
-  "supportedDeployments": [
-    "_standalone",
-    "_distributed"
-  ],
-  "targetWorkloads": null
+    "targetWorkloads": [
+        "_search_heads",
+        "_indexers"
+    ]
 }
