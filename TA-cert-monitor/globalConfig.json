@@ -2,7 +2,7 @@
     "pages": {
         "configuration": {
             "title": "Configuration",
-            "description": "Set up your add-on",
+            "description": "Set up your SSL/TLS Certificate Monitoring Add-On",
             "tabs": [
                 {
                     "name": "proxy",
@@ -107,20 +107,34 @@
             },
             "services": [
                 {
+                    "template": "input_with_helper",
                     "name": "cert_checker",
                     "title": "Certificate Endpoint",
                     "entity": [
                         {
+                            "type": "singleSelect",
                             "field": "index",
                             "label": "Index",
-                            "type": "index",
                             "defaultValue": "ssl_cert",
-                            "required": true
+                            "required": true,
+                            "options": {
+                                "endpointUrl": "data/indexes",
+                                "createSearchChoice": true,
+                                "denyList": "^_.*$"
+                            },
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80,
+                                    "errorMsg": "Length of index name should be between 1 and 80."
+                                }
+                            ]
                         },
                         {
+                            "type": "text",
                             "field": "name",
                             "label": "Name",
-                            "type": "text",
                             "required": true,
                             "validators": [
                                 {
@@ -132,9 +146,9 @@
                             ]
                         },
                         {
+                            "type": "text",
                             "field": "target_host",
                             "label": "Target Host / IP",
-                            "type": "text",
                             "required": true,
                             "validators": [
                                 {
@@ -146,9 +160,9 @@
                             ]
                         },
                         {
+                            "type": "text",
                             "field": "port",
                             "label": "Port",
-                            "type": "text",
                             "defaultValue": "443",
                             "required": true,
                             "validators": [
@@ -163,10 +177,10 @@
                             ]
                         },
                         {
+                            "type": "text",
                             "field": "sni",
                             "label": "SNI",
                             "help": "Server Name Indication",
-                            "type": "text",
                             "validators": [
                                 {
                                     "type": "string",
@@ -177,10 +191,10 @@
                             ]
                         },
                         {
+                            "type": "text",
                             "field": "timeout",
                             "label": "Connection Timeout",
                             "help": "in seconds",
-                            "type": "text",
                             "defaultValue": "10",
                             "validators": [
                                 {
@@ -194,37 +208,27 @@
                             ]
                         },
                         {
+                            "type": "checkbox",
                             "field": "verify_cert",
                             "label": "Strict Root Verification",
-                            "type": "checkbox",
                             "defaultValue": false,
                             "required": false
                         },
                         {
+                            "type": "checkbox",
                             "field": "audit_legacy_protocols",
                             "label": "Audit Legacy Protocols",
                             "help": "Actively probe the endpoint for deprecated TLS 1.0 and TLS 1.1 support.",
-                            "type": "checkbox",
                             "defaultValue": false,
                             "required": false
                         },
                         {
+                            "type": "interval",
                             "field": "interval",
                             "label": "Scan Interval",
                             "help": "in seconds",
-                            "type": "text",
                             "defaultValue": "86400",
-                            "required": true,
-                            "validators": [
-                                {
-                                    "type": "number",
-                                    "errorMsg": "Input must a number.",
-                                    "range": [
-                                        30,
-                                        86400
-                                    ]
-                                }
-                            ]
+                            "required": true
                         }
                     ]
                 }
@@ -299,7 +303,7 @@
         "displayName": "Splunk Add-on for SSL/TLS Certificate Monitoring",
         "name": "TA-cert-monitor",
         "restRoot": "ta_cert_monitor",
-        "version": "2.1.2",
+        "version": "2.1.3",
         "schemaVersion": "0.0.10",
         "hideUCCVersion": false,
         "checkForUpdates": true,

@@ -13,6 +13,10 @@ export = system
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system
 
+[eventtypes/ssl_cert_event]
+access = read : [ * ], write : [ admin, sc_admin ]
+export = system
+
 [tags]
 access = read : [ * ], write : [ admin, sc_admin ]
 export = system
