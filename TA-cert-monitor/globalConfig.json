@@ -303,7 +303,7 @@
         "displayName": "Splunk Add-on for SSL/TLS Certificate Monitoring",
         "name": "TA-cert-monitor",
         "restRoot": "ta_cert_monitor",
-        "version": "2.1.3",
+        "version": "2.1.4",
         "schemaVersion": "0.0.10",
         "hideUCCVersion": false,
         "checkForUpdates": true,
