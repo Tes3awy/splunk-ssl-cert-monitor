@@ -47,8 +47,8 @@ This solution is split into two modular packages following Splunk architectural 
 
 1. Log in to your Splunk Search Head or Heavy Forwarder as an administrator.
 2. Navigate to **Apps > Manage Apps > Install App from File**.
-3. Upload `TA-cert-monitor-2.1.6.tar.gz` and click **Upload**.
-4. Repeat the process to upload `cert_monitor-2.1.6.tar.gz`.
+3. Upload `TA-cert-monitor-2.1.7.tar.gz` and click **Upload**.
+4. Repeat the process to upload `cert_monitor-2.1.7.tar.gz`.
 5. Restart Splunk if prompted.
 
 ### Option 2: Command Line (CLI)
@@ -56,8 +56,8 @@ This solution is split into two modular packages following Splunk architectural 
 Extract both packages into `$SPLUNK_HOME/etc/apps/`:
 
 ```bash
-tar -xzvf TA-cert-monitor-2.1.6.tar.gz -C $SPLUNK_HOME/etc/apps/
-tar -xzvf cert_monitor-2.1.6.tar.gz -C $SPLUNK_HOME/etc/apps/
+tar -xzvf TA-cert-monitor-2.1.7.tar.gz -C $SPLUNK_HOME/etc/apps/
+tar -xzvf cert_monitor-2.1.7.tar.gz -C $SPLUNK_HOME/etc/apps/
 $SPLUNK_HOME/bin/splunk restart
 ```
 
