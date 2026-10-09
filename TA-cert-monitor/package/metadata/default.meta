@@ -1,11 +1,6 @@
 # Global default for TA knowledge objects
 []
 access = read : [ * ], write : [ admin, power ]
-export = none
-
-### inputs.conf configuration ACL
-[inputs]
-access = read : [ * ], write : [ admin, sc_admin ]
 export = system
 
 ### Eventtypes and Tags (CIM Certificates Normalization) ###
@@ -54,3 +49,4 @@ export = none
 
 [viewstates]
 access = read : [ * ], write : [ * ]
+export = none
