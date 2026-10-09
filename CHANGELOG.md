@@ -1,6 +1,22 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [2.1.5] - 2026-10-09
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v2.1.4 [skip ci]
+
+
+### Features
+
+- Update dashboard views, CSS styling, and props/inputs configurations
+
+
+### Refactoring
+
+- Rename app directory and package id to cert_monitor
+
 ## [2.1.4] - 2026-10-08
 
 ### Bug Fixes
