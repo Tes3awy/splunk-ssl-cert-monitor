@@ -90,8 +90,6 @@
                     }
                 ]
             },
-            "capabilities": {},
-            "useInputToggleConfirmation": true,
             "services": [
                 {
                     "template": "input_with_helper",
