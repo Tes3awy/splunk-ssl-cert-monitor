@@ -288,7 +288,7 @@
         "displayName": "Splunk Add-on for SSL/TLS Certificate Monitoring",
         "name": "TA-cert-monitor",
         "restRoot": "ta_cert_monitor",
-        "version": "2.1.7",
+        "version": "2.1.8",
         "schemaVersion": "0.0.10",
         "hideUCCVersion": false,
         "checkForUpdates": true,
