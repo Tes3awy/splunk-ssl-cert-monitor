@@ -92,7 +92,6 @@
             },
             "services": [
                 {
-                    "template": "input_with_helper",
                     "name": "cert_checker",
                     "title": "Certificate Endpoint",
                     "entity": [
