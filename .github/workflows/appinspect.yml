@@ -5,13 +5,13 @@ on:
     branches: [main, master]
     paths:
       - "TA-cert-monitor/**"
-      - "splunk-app-cert-monitor/**"
+      - "cert_monitor/**"
       - ".github/workflows/appinspect.yml"
   push:
     branches: [main, master]
     paths:
       - "TA-cert-monitor/**"
-      - "splunk-app-cert-monitor/**"
+      - "cert_monitor/**"
   workflow_dispatch:
 
 permissions:
@@ -97,7 +97,7 @@ jobs:
             inspect-reports/TA-cert-monitor-report.json
 
   inspect-app:
-    name: Build & Inspect splunk-app-cert-monitor
+    name: Build & Inspect cert_monitor
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -120,42 +120,42 @@ jobs:
 
       - name: Clean Source Artifacts
         run: |
-          find splunk-app-cert-monitor -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-          find splunk-app-cert-monitor -type f -name "*.py[co]" -delete 2>/dev/null || true
-          find splunk-app-cert-monitor -type f -name ".DS_Store" -delete 2>/dev/null || true
+          find cert_monitor -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+          find cert_monitor -type f -name "*.py[co]" -delete 2>/dev/null || true
+          find cert_monitor -type f -name ".DS_Store" -delete 2>/dev/null || true
 
       - name: Validate App Structure with Slim
         run: |
-          slim validate splunk-app-cert-monitor
+          slim validate cert_monitor
 
       - name: Build Package Archive with Slim
         run: |
           mkdir -p dist
-          slim package -o dist/ splunk-app-cert-monitor
-          mv dist/splunk-app-cert-monitor-*.tar.gz dist/splunk-app-cert-monitor.tar.gz
+          slim package -o dist/ cert_monitor
+          mv dist/cert_monitor-*.tar.gz dist/cert_monitor.tar.gz
 
       - name: Execute Splunk AppInspect on App
         run: |
           mkdir -p inspect-reports
-          $pythonLocation/bin/splunk-appinspect inspect dist/splunk-app-cert-monitor.tar.gz \
+          $pythonLocation/bin/splunk-appinspect inspect dist/cert_monitor.tar.gz \
             --mode precert \
             || true
 
-          $pythonLocation/bin/splunk-appinspect inspect dist/splunk-app-cert-monitor.tar.gz \
+          $pythonLocation/bin/splunk-appinspect inspect dist/cert_monitor.tar.gz \
             --mode precert \
-            --output-file inspect-reports/splunk-app-cert-monitor-report.json \
+            --output-file inspect-reports/cert_monitor-report.json \
             --data-format json
 
       - name: Verify Zero Failures
         run: |
           python -c '
           import json, sys
-          with open("inspect-reports/splunk-app-cert-monitor-report.json", "r") as f:
+          with open("inspect-reports/cert_monitor-report.json", "r") as f:
               data = json.load(f)
           summary = data.get("summary", {})
           failures = summary.get("failure", 0)
           errors = summary.get("error", 0)
-          print(f"splunk-app-cert-monitor Results -> Errors: {errors}, Failures: {failures}")
+          print(f"cert_monitor Results -> Errors: {errors}, Failures: {failures}")
           if failures > 0 or errors > 0:
               sys.exit(1)
           '
@@ -166,5 +166,5 @@ jobs:
         with:
           name: inspect-app-artifacts
           path: |
-            dist/splunk-app-cert-monitor.tar.gz
-            inspect-reports/splunk-app-cert-monitor-report.json
+            dist/cert_monitor.tar.gz
+            inspect-reports/cert_monitor-report.json
