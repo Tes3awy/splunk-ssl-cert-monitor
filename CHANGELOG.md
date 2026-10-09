@@ -1,6 +1,17 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [2.1.7] - 2026-10-09
+
+### Bug Fixes
+
+- *(ucc)* Remove invalid template property from cert_checker service
+
+
+### Documentation
+
+- *(changelog)* Update CHANGELOG.md for v2.1.6 [skip ci]
+
 ## [2.1.6] - 2026-10-09
 
 ### Bug Fixes
