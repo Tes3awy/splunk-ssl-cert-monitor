@@ -1,6 +1,12 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [2.1.6] - 2026-10-09
+
+### Bug Fixes
+
+- *(ucc)* Remove empty capabilities block causing 404 on inputs page
+
 ## [2.1.5] - 2026-10-09
 
 ### Documentation
