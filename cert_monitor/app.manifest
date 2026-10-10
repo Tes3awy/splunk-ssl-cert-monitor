@@ -52,7 +52,7 @@
     "incompatibleApps": null,
     "platformRequirements": {
         "splunk": {
-            "Enterprise": ">10"
+            "Enterprise": ">=9.0.0"
         }
     },
     "supportedDeployments": [
