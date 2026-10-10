@@ -4,7 +4,7 @@
         "title": "SSL/TLS Certificate Monitor App",
         "id": {
             "group": null,
-            "name": "splunk-cert-monitor-app",
+            "name": "splunk-app-cert-monitor",
             "version": "2.2.0"
         },
         "author": [
