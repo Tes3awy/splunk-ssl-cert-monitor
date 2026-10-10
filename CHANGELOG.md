@@ -19,10 +19,14 @@ All notable changes to this project will be documented in this file.
 
 - *(app)* Correct app id and directory to splunk-app-cert-monitor
 
+- *(app)* Enabled check_for_updates
+
 
 ### Documentation
 
 - *(changelog)* Update CHANGELOG.md for v2.1.8 [skip ci]
+
+- *(changelog)* Update CHANGELOG.md for v2.2.0 [skip ci]
 
 - *(changelog)* Update CHANGELOG.md for v2.2.0 [skip ci]
 
