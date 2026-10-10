@@ -42,7 +42,7 @@
         }
     },
     "dependencies": {
-        "splunk-cert-monitor-app": {
+        "splunk-app-cert-monitor": {
             "version": "2.2.0",
             "optional": true
         }

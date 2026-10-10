@@ -14,7 +14,7 @@ Proactively monitor SSL/TLS certificate validity, countdown expiration dates, au
 This solution is split into two modular packages following Splunk architectural best practices:
 
 1. **`TA-cert-monitor`** (Technology Add-on): Contains the Python 3 modular input (`cert_checker`), modular alert action (`cert_alert_webhook`), data collection engine, index-time parsing, and Splunk Common Information Model (CIM) field normalization.
-2. **`splunk-cert-monitor-app`** (Visualization App): Delivers operational dashboards, single-value KPI countdown cards, scheduled alerts, and security audit tables.
+2. **`splunk-app-cert-monitor`** (Visualization App): Delivers operational dashboards, single-value KPI countdown cards, scheduled alerts, and security audit tables.
 
 ---
 
@@ -33,7 +33,7 @@ This solution is split into two modular packages following Splunk architectural 
 
 ## Topology & Deployment Architecture
 
-| Splunk Tier                             | `TA-cert-monitor`                              | `splunk-cert-monitor-app`                  |
+| Splunk Tier                             | `TA-cert-monitor`                              | `splunk-app-cert-monitor`                  |
 | :-------------------------------------- | :--------------------------------------------- | :----------------------------------------- |
 | **Search Heads / Search Head Clusters** | Required (Field aliases, CIM, Alert Action UI) | Required (Dashboards, Nav, Saved Searches) |
 | **Indexers / Indexer Clusters**         | Required (`props.conf` only)                   | Not Needed                                 |
@@ -49,7 +49,7 @@ This solution is split into two modular packages following Splunk architectural 
 1. Log in to your Splunk Search Head or Heavy Forwarder as an administrator.
 2. Navigate to **Apps > Manage Apps > Install App from File**.
 3. Upload `TA-cert-monitor-2.2.0.tar.gz` and click **Upload**.
-4. Repeat the process to upload `splunk-cert-monitor-app-2.2.0.tar.gz`.
+4. Repeat the process to upload `splunk-app-cert-monitor-2.2.0.tar.gz`.
 5. Restart Splunk if prompted.
 
 ### Option 2: Command Line (CLI)
@@ -58,7 +58,7 @@ Extract both packages into `$SPLUNK_HOME/etc/apps/`:
 
 ```bash
 tar -xzvf TA-cert-monitor-2.2.0.tar.gz -C $SPLUNK_HOME/etc/apps/
-tar -xzvf splunk-cert-monitor-app-2.2.0.tar.gz -C $SPLUNK_HOME/etc/apps/
+tar -xzvf splunk-app-cert-monitor-2.2.0.tar.gz -C $SPLUNK_HOME/etc/apps/
 $SPLUNK_HOME/bin/splunk restart
 ```
 
@@ -69,7 +69,7 @@ $SPLUNK_HOME/bin/splunk restart
 By default, the dashboard and alerts search using the `ssl_cert_index` macro (defaults to `index=ssl_cert` OR `index=main`). If you store certificate metrics in a dedicated index:
 
 1. Go to **Settings > Advanced Search > Search Macros**.
-2. Locate `ssl_cert_index` under **App: splunk-cert-monitor-app**.
+2. Locate `ssl_cert_index` under **App: splunk-app-cert-monitor**.
 3. Update the definition to your target index: `index=your_index_name`.
 
 ### 2. Add Certificate Monitoring Inputs
