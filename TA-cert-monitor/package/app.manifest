@@ -5,7 +5,7 @@
         "id": {
             "group": null,
             "name": "TA-cert-monitor",
-            "version": "2.1.8"
+            "version": "2.2.0"
         },
         "author": [
             {
@@ -43,7 +43,7 @@
     },
     "dependencies": {
         "cert_monitor": {
-            "version": "2.1.8",
+            "version": "2.2.0",
             "optional": true
         }
     },

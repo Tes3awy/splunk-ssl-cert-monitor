@@ -2,7 +2,7 @@
 """
 Splunk Add-on for SSL/TLS Certificate Monitoring (TA-cert-monitor)
 Modular Input: cert_checker_helper
-Version: 2.1.8
+Version: 2.2.0
 Description: Gathers certificate telemetry, validates validity lifecycles, parses Subject
 Alternative Names (SAN), and optionally audits legacy TLS protocol support.
 """
