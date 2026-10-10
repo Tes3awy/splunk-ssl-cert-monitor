@@ -21,7 +21,7 @@
                         normalization.</li>
                     <li>
                         <strong>
-                            <code>cert_monitor</code>
+                            <code>splunk-cert-monitor-app</code>
                         </strong>
                         (Visualization App): Delivers operational dashboards, single-value KPI
                         countdown cards, scheduled alerts, and security audit tables.</li>
@@ -75,7 +75,7 @@
                                 <code>TA-cert-monitor</code>
                             </th>
                             <th style="text-align:left">
-                                <code>cert_monitor</code>
+                                <code>splunk-cert-monitor-app</code>
                             </th>
                         </tr>
                     </thead>
@@ -120,13 +120,13 @@
                         .</li>
                     <li>Upload <code>TA-cert-monitor-[Major.Minor.Patch].tar.gz</code> and click <strong>
                         Upload</strong> .</li>
-                    <li>Repeat the process to upload <code>cert_monitor-[Major.Minor.Patch]
-                            .tar.gz</code> .</li>
+                    <li>Repeat the process to upload <code>splunk-cert-monitor-app-[Major.Minor.Patch]
+                        .tar.gz</code> .</li>
                     <li>Restart Splunk if prompted.</li>
                 </ol>
                 <h3 id="option-2-command-line-cli-">Option 2: Command Line (CLI)</h3>
                 <p>Extract both packages into <code>$SPLUNK_HOME/etc/apps/</code>:</p>
-                <pre><code class="lang-bash">tar -xzvf TA-cert-monitor-<span class="hljs-number">2.1</span>.<span class="hljs-number">0</span><span class="hljs-selector-class">.tar</span><span class="hljs-selector-class">.gz</span> -C <span class="hljs-variable">$SPLUNK_HOME</span>/etc/apps/tar -xzvf cert_monitor-<span class="hljs-number">2.1</span>.<span class="hljs-number">0</span><span class="hljs-selector-class">.tar</span><span class="hljs-selector-class">.gz</span> -C <span class="hljs-variable">$SPLUNK_HOME</span>/etc/apps/<span class="hljs-variable">$SPLUNK_HOME</span>/bin/splunk restart</code></pre>
+                <pre><code class="lang-bash">tar -xzvf TA-cert-monitor-<span class="hljs-number">2.1</span>.<span class="hljs-number">0</span><span class="hljs-selector-class">.tar</span><span class="hljs-selector-class">.gz</span> -C <span class="hljs-variable">$SPLUNK_HOME</span>/etc/apps/tar -xzvf splunk-cert-monitor-app-<span class="hljs-number">2.1</span>.<span class="hljs-number">0</span><span class="hljs-selector-class">.tar</span><span class="hljs-selector-class">.gz</span> -C <span class="hljs-variable">$SPLUNK_HOME</span>/etc/apps/<span class="hljs-variable">$SPLUNK_HOME</span>/bin/splunk restart</code></pre>
                 <h2 id="configuration">Configuration</h2>
                 <h3 id="1-configure-the-target-index-macro">1. Configure the Target Index Macro</h3>
                 <p>By default, the dashboard and alerts search using the <code>ssl_cert_index</code>
@@ -135,7 +135,7 @@
                 <ol>
                     <li>Go to <strong>Settings &gt; Advanced Search &gt; Search Macros</strong>.</li>
                     <li>Locate <code>ssl_cert_index</code> under <strong>App:
-                            cert_monitor</strong>.</li>
+                            splunk-cert-monitor-app</strong>.</li>
                     <li>Update the definition to your target index: <code>index=your_index_name</code>
                         .</li>
                 </ol>

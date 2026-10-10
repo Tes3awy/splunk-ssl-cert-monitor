@@ -41,9 +41,9 @@ jobs:
           ucc-gen package --path output/TA-cert-monitor
           mv TA-cert-monitor-*.tar.gz ../dist/
 
-      - name: Build cert_monitor with Slim
+      - name: Build splunk-cert-monitor-app with Slim
         run: |
-          slim package -o dist/ cert_monitor
+          slim package -o dist/ splunk-cert-monitor-app
 
       - name: Generate Changelog
         run: |

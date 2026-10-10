@@ -51,8 +51,8 @@ jobs:
         target:
           - dir: "TA-cert-monitor/package"
             pkg: "TA-cert-monitor"
-          - dir: "cert_monitor"
-            pkg: "cert_monitor"
+          - dir: "splunk-cert-monitor-app"
+            pkg: "splunk-cert-monitor-app"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

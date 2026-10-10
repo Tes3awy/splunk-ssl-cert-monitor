@@ -32,20 +32,20 @@ filename = "TA-cert-monitor/package/bin/cert_alert_webhook.py"
 search = "Splunk-TA-cert-monitor-Webhook/{current_version}"
 replace = "Splunk-TA-cert-monitor-Webhook/{new_version}"
 
-# --- cert_monitor App ---
+# --- splunk-cert-monitor-app App ---
 [[tool.bumpversion.files]]
-filename = "cert_monitor/default/app.conf"
+filename = "splunk-cert-monitor-app/default/app.conf"
 search = "version = {current_version}"
 replace = "version = {new_version}"
 
 [[tool.bumpversion.files]]
-filename = "cert_monitor/default/app.conf"
+filename = "splunk-cert-monitor-app/default/app.conf"
 regex = true
 search = 'build = \d+'
 replace = "build = {now:%Y%m%d%H%M}"
 
 [[tool.bumpversion.files]]
-filename = "cert_monitor/app.manifest"
+filename = "splunk-cert-monitor-app/app.manifest"
 search = '"version": "{current_version}"'
 replace = '"version": "{new_version}"'
 
@@ -57,8 +57,8 @@ replace = "TA-cert-monitor-{new_version}.tar.gz"
 
 [[tool.bumpversion.files]]
 filename = "README.md"
-search = "cert_monitor-{current_version}.tar.gz"
-replace = "cert_monitor-{new_version}.tar.gz"
+search = "splunk-cert-monitor-app-{current_version}.tar.gz"
+replace = "splunk-cert-monitor-app-{new_version}.tar.gz"
 
 # --- Other Files ---
 [[tool.bumpversion.files]]
