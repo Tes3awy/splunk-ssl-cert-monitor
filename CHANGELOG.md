@@ -15,10 +15,16 @@ All notable changes to this project will be documented in this file.
 
 - *(app)* Restore package id to splunk-cert-monitor-app for splunkbase compatibility
 
+- *(app)* Correct app id and directory to splunk-app-cert-monitor
+
+- *(app)* Correct app id and directory to splunk-app-cert-monitor
+
 
 ### Documentation
 
 - *(changelog)* Update CHANGELOG.md for v2.1.8 [skip ci]
+
+- *(changelog)* Update CHANGELOG.md for v2.2.0 [skip ci]
 
 - *(changelog)* Update CHANGELOG.md for v2.2.0 [skip ci]
 
