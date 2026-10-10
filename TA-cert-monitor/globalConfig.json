@@ -223,7 +223,8 @@
                             "defaultValue": "86400",
                             "required": true
                         }
-                    ]
+                    ],
+                    "inputHelperModule": "cert_checker_helper"
                 }
             ],
             "table": {
@@ -288,7 +289,7 @@
         "displayName": "Splunk Add-on for SSL/TLS Certificate Monitoring",
         "name": "TA-cert-monitor",
         "restRoot": "ta_cert_monitor",
-        "version": "2.1.8",
+        "version": "2.2.0",
         "schemaVersion": "0.0.10",
         "hideUCCVersion": false,
         "checkForUpdates": true,

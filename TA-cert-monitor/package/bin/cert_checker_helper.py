@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Splunk Add-on for SSL/TLS Certificate Monitoring (TA-cert-monitor)
-Modular Input: cert_checker
+Modular Input: cert_checker_helper
 Version: 2.1.8
 Description: Gathers certificate telemetry, validates validity lifecycles, parses Subject
 Alternative Names (SAN), and optionally audits legacy TLS protocol support.
@@ -9,7 +9,6 @@ Alternative Names (SAN), and optionally audits legacy TLS protocol support.
 
 import datetime
 import json
-import logging
 import os
 import socket
 import ssl
@@ -39,58 +38,108 @@ from splunklib import modularinput as smi
 ADDON_NAME = "TA-cert-monitor"
 CONF_FILE = "ta_cert_monitor_settings"
 
+logger = log.Logs().get_logger("ta_cert_monitor")
 
-def get_ucc_settings(session_key: str):
-    """Retrieve logging and proxy configurations from UCC-generated conf."""
-    settings = {
-        "loglevel": "INFO",
-        "proxy_enabled": False,
-        "proxy_url": None,
-        "proxy_port": "8080",
-        "proxy_username": None,
-        "proxy_password": None,
-    }
+
+def update_log_level_from_settings(session_key: str, app_name: str = ADDON_NAME):
+    """
+    Reads the loglevel configured in UCC's Configuration -> Logging tab
+    using solnlib.conf_manager and applies it to the active logger.
+    """
+    if not session_key:
+        return
+
     try:
-        cfm = conf_manager.ConfManager(
-            session_key,
-            ADDON_NAME,
-            realm=f"__REST_CREDENTIAL__#{ADDON_NAME}#configs/conf-{CONF_FILE}",
+        cfm = conf_manager.ConfManager(session_key, app_name)
+        logging_stanza = cfm.get_conf(CONF_FILE).get("logging")
+        level_name = logging_stanza.get("loglevel", "INFO").upper()
+
+        log.Logs().set_context(log_level=level_name)
+        logger.setLevel(level_name)
+
+    except Exception as e:
+        logger.debug(f"Unable to read loglevel from settings conf: {e}")
+
+
+def validate_input(definition: smi.ValidationDefinition):
+    """
+    Validates form parameters submitted in UCC Splunk Web.
+    Raises ValueError to display user-facing validation errors in the UI modal.
+    """
+    params = definition.parameters
+
+    target_host = params.get("target_host", "").strip()
+    port = params.get("port")
+    timeout = params.get("timeout")
+
+    if not target_host:
+        raise ValueError("Target Host / IP is required.")
+
+    if port is not None:
+        try:
+            port_val = int(port)
+            if not (1 <= port_val <= 65535):
+                raise ValueError("Port must be an integer between 1 and 65535.")
+        except ValueError:
+            raise ValueError("Port must be a valid numeric integer.")
+
+    if timeout is not None:
+        try:
+            timeout_val = float(timeout)
+            if timeout_val <= 0:
+                raise ValueError("Timeout must be a positive number.")
+        except ValueError:
+            raise ValueError("Timeout must be a valid numeric value.")
+
+
+def get_proxy_url(session_key: str, app_name: str = ADDON_NAME) -> str | None:
+    """
+    Retrieves proxy settings from UCC's Configuration -> Proxy tab
+    and constructs a standard proxy URL (e.g. http://user:pass@proxy.corp:8080).
+    Returns None if proxy is disabled or not configured.
+    """
+    if not session_key:
+        return None
+
+    try:
+        cfm = conf_manager.ConfManager(session_key, app_name)
+        proxy_stanza = cfm.get_conf(CONF_FILE).get("proxy")
+
+        if not proxy_stanza:
+            return None
+
+        proxy_enabled = str(proxy_stanza.get("proxy_enabled", "0")).lower() in (
+            "1",
+            "true",
         )
-        conf = cfm.get_conf(CONF_FILE)
-        logging_stanza = conf.get("logging")
-        if logging_stanza:
-            settings["loglevel"] = logging_stanza.get("loglevel", "INFO")
+        if not proxy_enabled:
+            return None
 
-        proxy_stanza = conf.get("proxy")
-        if proxy_stanza:
-            settings["proxy_enabled"] = str(
-                proxy_stanza.get("proxy_enabled", "0")
-            ).lower() in ("1", "true")
-            settings["proxy_url"] = proxy_stanza.get("proxy_url")
-            settings["proxy_port"] = proxy_stanza.get("proxy_port", "8080")
-            settings["proxy_username"] = proxy_stanza.get("proxy_username")
-            settings["proxy_password"] = proxy_stanza.get("proxy_password")
-    except Exception:
-        # Fall back to sensible defaults if running in test context or initial load
-        pass
-    return settings
+        host = proxy_stanza.get("proxy_url", "").strip()
+        if not host:
+            return None
 
+        port = proxy_stanza.get("proxy_port", "8080")
+        proxy_type = proxy_stanza.get("proxy_type", "http").lower()
+        username = proxy_stanza.get("proxy_username", "").strip()
+        password = proxy_stanza.get("proxy_password", "").strip()
 
-def logger_for_input(loglevel, input_name: str = "modinput") -> logging.Logger:
-    """Initialize structured logging using solnlib."""
-    logger = log.Logs().get_logger(f"{ADDON_NAME.lower()}_{input_name}")
-    log.Logs().set_context(logger=logger, log_level=loglevel)
-    return logger
+        # Build credentials string if authentication is configured
+        auth = ""
+        if username and password:
+            user_enc = urllib.parse.quote(username, safe="")
+            pass_enc = urllib.parse.quote(password, safe="")
+            auth = f"{user_enc}:{pass_enc}@"
 
+        # Strip any existing scheme from host if provided
+        if "://" in host:
+            host = host.split("://", 1)[-1]
 
-def get_account_api_key(session_key: str, account_name: str):
-    cfm = conf_manager.ConfManager(
-        session_key,
-        ADDON_NAME,
-        realm=f"__REST_CREDENTIAL__#{ADDON_NAME}#configs/conf-{ADDON_NAME}_account",
-    )
-    account_conf_file = cfm.get_conf(f"{ADDON_NAME}_account")
-    return account_conf_file.get(account_name).get("api_key")
+        return f"{proxy_type}://{auth}{host}:{port}"
+
+    except Exception as e:
+        logger.debug(f"Unable to resolve proxy URL: {e}")
+        return None
 
 
 def check_ocsp_status(leaf_cert, issuer_cert=None, proxy_url=None, timeout=5):
@@ -236,13 +285,13 @@ def probe_legacy_tls_protocols(host, port, sni=None, timeout=3.0):
 
 
 def check_endpoint_certificate(
-    target_host,
-    port=443,
-    sni=None,
-    verify_cert=True,
-    timeout=10,
-    audit_legacy_protocols=False,
-    proxy_url=None,
+    target_host: str,
+    port: int = 443,
+    sni: str | None = None,
+    verify_cert: bool = True,
+    timeout: int | float = 10,
+    audit_legacy_protocols: bool = False,
+    proxy_url: str | None = None,
 ):
     """Establishes a TLS session to retrieve and evaluate certificate telemetry."""
     target_sni = sni if sni else target_host
@@ -366,7 +415,7 @@ def check_endpoint_certificate(
         # Perform OCSP probe if not self-signed
         if not is_self_signed:
             ocsp_result = check_ocsp_status(
-                x509_cert,
+                leaf_cert=x509_cert,
                 issuer_cert=None,
                 proxy_url=proxy_url,
                 timeout=timeout,
@@ -410,186 +459,95 @@ def check_endpoint_certificate(
     return record
 
 
-class CertChecker(smi.Script):
-    def get_scheme(self):
-        scheme = smi.Scheme("Certificate Endpoint")
-        scheme.description = "Collect SSL/TLS certificate attributes, lifecycle status, SAN domains, and audit legacy protocols."
-        scheme.use_external_validation = True
-        scheme.streaming_mode_xml = True
-        scheme.use_single_instance = False
+def stream_events(inputs: smi.InputDefinition, ew: smi.EventWriter):
+    """
+    Processes scheduled polling executions for each configured input stanza.
+    """
+    session_key = inputs.metadata.get("session_key")
+    update_log_level_from_settings(session_key)
+    proxy_url = get_proxy_url(session_key)
 
-        scheme.add_argument(
-            smi.Argument(
-                name="target_host",
-                title="Target Host / IP",
-                description="FQDN or IP address of the TLS endpoint",
-                data_type=smi.Argument.data_type_string,
-                required_on_create=True,
-                required_on_edit=False,
-            )
+    if proxy_url:
+        logger.info(f"Active proxy detected: {proxy_url.split('@')[-1]}")
+
+    for input_name, input_item in inputs.inputs.items():
+        stanza_title = (
+            input_name.split("://")[-1] if "://" in input_name else input_name
         )
-        scheme.add_argument(
-            smi.Argument(
-                name="port",
-                title="Port",
-                description="Target TCP port number (1-65535, default 443)",
-                data_type=smi.Argument.data_type_number,
-                required_on_create=False,
-                required_on_edit=False,
-            )
+
+        target_host = input_item.get("target_host", "").strip()
+        port = int(input_item.get("port", 443))
+        sni = input_item.get("sni") or target_host
+        timeout = float(input_item.get("timeout", 10))
+        verify_cert = str(input_item.get("verify_cert", "false")).lower() in (
+            "true",
+            "1",
         )
-        scheme.add_argument(
-            smi.Argument(
-                name="sni",
-                title="SNI",
-                description="TLS SNI hostname override (defaults to target_host if omitted)",
-                data_type=smi.Argument.data_type_string,
-                required_on_create=False,
-                required_on_edit=False,
-            )
-        )
-        scheme.add_argument(
-            smi.Argument(
-                name="timeout",
-                title="Connection Timeout",
-                description="TCP handshake and TLS negotiation timeout in seconds (5-300, default 10)",
-                data_type=smi.Argument.data_type_number,
-                required_on_create=False,
-                required_on_edit=False,
-            )
-        )
-        scheme.add_argument(
-            smi.Argument(
-                name="verify_cert",
-                title="Strict Root Verification",
-                description="Validate certificate chain against system/local CA trust store (true/false)",
-                data_type=smi.Argument.data_type_boolean,
-                required_on_create=False,
-                required_on_edit=False,
-            )
-        )
-        scheme.add_argument(
-            smi.Argument(
-                name="audit_legacy_protocols",
-                title="Audit Legacy Protocols",
-                description="Probe for TLS 1.0/1.1 acceptance (true/false)",
-                data_type=smi.Argument.data_type_boolean,
-                required_on_create=False,
-                required_on_edit=False,
-            )
-        )
-        return scheme
+        audit_legacy = str(
+            input_item.get("audit_legacy_protocols", "false")
+        ).lower() in ("true", "1")
 
-    def validate_input(self, definition: smi.ValidationDefinition):
-        """External validation invoked by Splunk Web / REST before saving input stanzas."""
-        params = definition.parameters
+        index = input_item.get("index", "ssl_cert")
+        sourcetype = input_item.get("sourcetype", "cert:ssl:json")
 
-        # 1. Validate target_host
-        target_host = params.get("target_host", "").strip()
-        if not target_host:
-            raise ValueError("Target Host / IP cannot be empty.")
-        if len(target_host) > 255:
-            raise ValueError("Target Host / IP cannot exceed 255 characters.")
+        msg = f"Auditing endpoint='{target_host}:{port}' (SNI: '{sni}') for stanza='{stanza_title}'"
+        ew.log(smi.EventWriter.INFO, msg)
+        logger.info(msg)
 
-        # 2. Validate port
-        port = params.get("port")
-        if port is not None and str(port).strip():
-            try:
-                port_num = int(port)
-                if port_num < 1 or port_num > 65535:
-                    raise ValueError("Port must be an integer between 1 and 65535.")
-            except ValueError:
-                raise ValueError(
-                    f"Invalid port value '{port}': Must be an integer between 1 and 65535."
-                )
-
-        # 3. Validate timeout
-        timeout = params.get("timeout")
-        if timeout is not None and str(timeout).strip():
-            try:
-                timeout_val = int(timeout)
-                if timeout_val < 1 or timeout_val > 300:
-                    raise ValueError(
-                        "Connection Timeout must be an integer between 1 and 300 seconds."
-                    )
-            except ValueError:
-                raise ValueError(
-                    f"Invalid timeout value '{timeout}': Must be an integer between 1 and 300."
-                )
-
-        # 4. Validate SNI
-        sni = params.get("sni", "").strip()
-        if sni and len(sni) > 255:
-            raise ValueError("SNI value cannot exceed 255 characters.")
-
-    def stream_events(self, inputs: smi.InputDefinition, ew: smi.EventWriter):
-        session_key = inputs.metadata.get("session_key")
-        ucc_settings = get_ucc_settings(session_key)
-        logger = logger_for_input(ucc_settings.get("loglevel"))
-
-        # Construct proxy URI if enabled
-        proxy_conn_str = None
-        if ucc_settings.get("proxy_enabled") and ucc_settings.get("proxy_url"):
-            p_user = ucc_settings.get("proxy_username")
-            p_pass = ucc_settings.get("proxy_password")
-            p_host = ucc_settings.get("proxy_url")
-            p_port = ucc_settings.get("proxy_port", "8080")
-            if p_user and p_pass:
-                proxy_conn_str = f"http://{urllib.parse.quote(p_user)}:{urllib.parse.quote(p_pass)}@{p_host}:{p_port}"
-            else:
-                proxy_conn_str = f"http://{p_host}:{p_port}"
-
-        for input_name, input_item in inputs.inputs.items():
-            target_host = input_item.get("target_host", "").strip()
-
-            raw_port = input_item.get("port")
-            port = int(raw_port) if raw_port and str(raw_port).strip() else 443
-
-            sni = input_item.get("sni") or target_host
-
-            raw_timeout = input_item.get("timeout")
-            timeout = (
-                int(raw_timeout) if raw_timeout and str(raw_timeout).strip() else 10
-            )
-
-            verify_cert = str(input_item.get("verify_cert", "false")).lower() in (
-                "1",
-                "true",
-            )
-            audit_legacy = str(
-                input_item.get("audit_legacy_protocols", "false")
-            ).lower() in ("true", "1", "yes")
-
-            index = input_item.get("index", "ssl_cert")
-
-            logger.info(
-                f"Starting certificate probe for stanza={input_name} target={target_host}:{port} sni={sni}"
-            )
-
-            record = check_endpoint_certificate(
+        try:
+            payload = check_endpoint_certificate(
                 target_host=target_host,
                 port=port,
                 sni=sni,
-                verify_cert=verify_cert,
                 timeout=timeout,
+                verify_cert=verify_cert,
                 audit_legacy_protocols=audit_legacy,
-                proxy_url=proxy_conn_str,
+                proxy_url=proxy_url,
             )
 
-            # Stream JSON Event to Splunk
-            event = smi.Event()
-            event.stanza = input_name
-            event.index = index
-            event.source = f"cert_checker://{input_name}"
-            event.sourcetype = "cert:ssl:json"
-            event.data = json.dumps(record)
-            event.time = str(int(time.time()))
+            event = smi.Event(
+                data=json.dumps(payload),
+                stanza=input_name,
+                time=time.time(),
+                index=index,
+                sourcetype=sourcetype,
+                done=True,
+                unbroken=True,
+            )
             ew.write_event(event)
 
             logger.info(
-                f"Completed probe for stanza={input_name}. Status: {record.get('status', 'UNKNOWN')}"
+                f"Successfully ingested certificate audit for {target_host}:{port}"
             )
 
+        except Exception as e:
+            err_msg = f"Failed to probe certificate for {target_host}:{port} - {str(e)}"
+            ew.log(smi.EventWriter.ERROR, err_msg)
+            logger.error(err_msg, exc_info=True)
 
-if __name__ == "__main__":
-    sys.exit(CertChecker().run(sys.argv))
+            error_payload = {
+                "dest": target_host,
+                "dest_port": port,
+                "sni": sni,
+                "time": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+                "status": "CONNECTION_ERROR",
+                "error": str(e),
+                "days_remaining": None,
+                "negotiated_tls_version": None,
+                "cipher": None,
+                "is_self_signed": False,
+                "revocation_status": "ERROR",
+                "revocation_reason": str(e),
+                "legacy_protocols_supported": [],
+                "has_legacy_tls": False,
+            }
+            error_event = smi.Event(
+                data=json.dumps(error_payload),
+                stanza=input_name,
+                time=time.time(),
+                index=index,
+                sourcetype=sourcetype,
+                done=True,
+                unbroken=True,
+            )
+            ew.write_event(error_event)

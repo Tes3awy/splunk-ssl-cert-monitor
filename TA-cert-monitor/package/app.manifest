@@ -41,11 +41,20 @@
             "uri": "https://github.com/Tes3awy/splunk-ssl-cert-monitor/releases"
         }
     },
-    "dependencies": null,
+    "dependencies": {
+        "cert_monitor": {
+            "version": "2.1.8",
+            "optional": true
+        }
+    },
     "tasks": null,
     "inputGroups": null,
     "incompatibleApps": null,
-    "platformRequirements": null,
+    "platformRequirements": {
+        "splunk": {
+            "Enterprise": ">10"
+        }
+    },
     "supportedDeployments": [
         "_standalone",
         "_distributed",

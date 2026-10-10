@@ -38,6 +38,13 @@ dev = [
     "pre-commit>=4.6.2",
 ]
 
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.black]
+line-length = 88
+
 [tool.bandit]
 targets = ["TA-cert-monitor/package/bin"]
 exclude_dirs = ["tests", "package/bin/lib", "package/lib"]

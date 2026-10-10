@@ -14,21 +14,16 @@ tag_message = "Release v{new_version}"
 allow_dirty = false
 commit = true
 message = "chore(release): bump version {current_version} -> {new_version}"
-commit_args = ""
+commit_args = "--no-verify"
 
 # --- TA-cert-monitor (UCC Source & Manifest) ---
 [[tool.bumpversion.files]]
-filename = "TA-cert-monitor/package/bin/cert_checker.py"
+filename = "TA-cert-monitor/package/bin/cert_checker_helper.py"
 search = 'Version: {current_version}'
 replace = 'Version: {new_version}'
 
 [[tool.bumpversion.files]]
 filename = "TA-cert-monitor/package/app.manifest"
-search = '"version": "{current_version}"'
-replace = '"version": "{new_version}"'
-
-[[tool.bumpversion.files]]
-filename = "TA-cert-monitor/globalConfig.json"
 search = '"version": "{current_version}"'
 replace = '"version": "{new_version}"'
 
@@ -42,6 +37,12 @@ replace = "Splunk-TA-cert-monitor-Webhook/{new_version}"
 filename = "cert_monitor/default/app.conf"
 search = "version = {current_version}"
 replace = "version = {new_version}"
+
+[[tool.bumpversion.files]]
+filename = "cert_monitor/default/app.conf"
+regex = true
+search = 'build = \d+'
+replace = "build = {now:%Y%m%d%H%M}"
 
 [[tool.bumpversion.files]]
 filename = "cert_monitor/app.manifest"

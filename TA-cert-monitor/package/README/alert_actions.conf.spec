@@ -7,6 +7,9 @@ python.version = <string>
 python.required = <string>
 * Python target version for Splunk Cloud compatibility.
 
+param.auth_token = <string>
+* Authentication token.
+
 param.webhook_url = <string>
 * HTTPS destination URL where payload JSON will be posted.
 

@@ -11,20 +11,42 @@
         <search>
           <query>
             `ssl_cert_index` `ssl_cert_sourcetype` status!="CONNECTION_ERROR"
+            | eval ssl_version = coalesce(ssl_version, negotiated_tls_version),
+            ssl_cipher = coalesce(ssl_cipher, cipher)
             | stats latest(ssl_version) as ssl_version,
             latest(ssl_cipher) as ssl_cipher,
+            latest(has_legacy_tls) as has_legacy_tls,
+            latest(legacy_protocols_supported) as legacy_protocols_supported,
             latest(issuer_cn) as issuer_cn,
             latest(_time) as last_seen
             by dest, dest_port, sni
-            | search ssl_version IN ("TLSv1", "TLSv1.1", "SSLv2", "SSLv3") OR
-            ssl_cipher="*RC4*" OR ssl_cipher="*3DES*" OR ssl_cipher="*NULL*"
-            | eval Target=dest . ":" . dest_port,
-            last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S UTC")
-            | table Target, sni, ssl_version, ssl_cipher, issuer_cn, last_seen
+            | eval legacy_str = mvjoin(legacy_protocols_supported, ", ")
+            | search ssl_version IN ("TLSv1", "TLSv1.0", "TLS 1.0", "TLSv1.1", "TLS 1.1", "SSLv2",
+            "SSLv3")
+            OR has_legacy_tls=true
+            OR has_legacy_tls="true"
+            OR ssl_cipher="*RC4*"
+            OR ssl_cipher="*3DES*"
+            OR ssl_cipher="*DES*"
+            OR ssl_cipher="*NULL*"
+            OR ssl_cipher="*MD5*"
+            OR ssl_cipher="*EXP*"
+            OR ssl_cipher="*anon*"
+            | eval Target = dest . ":" . dest_port,
+            Risk_Reason = case(
+            has_legacy_tls=true OR has_legacy_tls="true", "Legacy Protocols Enabled (" .
+            coalesce(legacy_str, "TLS 1.0/1.1") . ")",
+            ssl_version IN ("TLSv1", "TLSv1.0", "TLS 1.0", "TLSv1.1", "TLS 1.1", "SSLv2", "SSLv3"),
+            "Deprecated Negotiated Protocol (" . ssl_version . ")",
+            true(), "Weak / Insecure Cipher Suite"
+            ),
+            last_seen = strftime(last_seen, "%Y-%m-%d %H:%M:%S UTC")
+            | table Target, sni, ssl_version, ssl_cipher, Risk_Reason, issuer_cn, last_seen
             | rename Target as "Endpoint",
             sni as "SNI",
-            ssl_version as "Protocol",
+            ssl_version as "Negotiated Protocol",
             ssl_cipher as "Negotiated Cipher",
+            Risk_Reason as "Identified Vulnerability",
             issuer_cn as "CA Issuer",
             last_seen as "Audit Timestamp"
           </query>
@@ -49,18 +71,22 @@
             latest(subject_cn) as subject_cn,
             latest(issuer_cn) as issuer_cn,
             latest(signature_algorithm) as signature_algorithm,
+            latest(days_remaining) as days_remaining,
             latest(valid_to) as valid_to,
             latest(_time) as last_seen
             by dest, dest_port, sni
-            | search is_self_signed=true OR is_self_signed="true"
-            | eval Endpoint=dest . ":" . dest_port,
-            last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S UTC")
-            | table Endpoint, sni, subject_cn, issuer_cn, signature_algorithm, valid_to, last_seen
-            | rename Endpoint as "Endpoint",
-            sni as "SNI",
+            | where is_self_signed=true OR is_self_signed="true" OR is_self_signed=1
+            | eval Endpoint = dest . ":" . dest_port,
+            Days_Left = if(isnotnull(days_remaining), round(days_remaining, 1), "N/A"),
+            last_seen = strftime(last_seen, "%Y-%m-%d %H:%M:%S %Z")
+            | sort days_remaining asc
+            | table Endpoint, sni, subject_cn, issuer_cn, signature_algorithm, Days_Left, valid_to,
+            last_seen
+            | rename sni as "SNI",
             subject_cn as "Common Name",
             issuer_cn as "Issuer",
             signature_algorithm as "Signature Algorithm",
+            Days_Left as "Days Remaining",
             valid_to as "Valid Until",
             last_seen as "Last Detected"
           </query>
@@ -82,26 +108,33 @@
         <search>
           <query>
             `ssl_cert_index` `ssl_cert_sourcetype`
-            (status!="VALID" AND status!="EXPIRING_WARNING" AND status!="EXPIRING_CRITICAL") OR
-            revocation_status="REVOKED"
+            | eval error_message = coalesce(error, error_message)
             | stats count,
             latest(status) as status,
             latest(revocation_status) as revocation_status,
             latest(revocation_reason) as revocation_reason,
-            latest(error) as error_message,
+            latest(error_message) as error_message,
             latest(_time) as last_seen
             by dest, dest_port, sni
-            | eval Endpoint=dest . ":" . dest_port,
-            Issue_Detail=coalesce(revocation_reason, error_message, status, "Unknown Failure"),
-            last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S UTC")
+            | where (NOT status IN ("VALID", "EXPIRING_WARNING", "EXPIRING_CRITICAL")) OR
+            revocation_status="REVOKED"
+            | eval Endpoint = dest . ":" . dest_port,
+            Issue_Detail = case(
+            revocation_status="REVOKED", "Certificate Revoked: " . coalesce(revocation_reason,
+            "Reason Unspecified"),
+            isnotnull(error_message) AND error_message!="" AND error_message!="null", error_message,
+            status="CONNECTION_ERROR", "Endpoint Unreachable / Connection Timeout",
+            status="EXPIRED", "Certificate Expired",
+            true(), status
+            ),
+            last_seen = strftime(last_seen, "%Y-%m-%d %H:%M:%S %Z")
             | sort - count
             | table Endpoint, sni, status, revocation_status, Issue_Detail, count, last_seen
-            | rename Endpoint as "Endpoint",
-            sni as "SNI",
+            | rename sni as "SNI",
             status as "Status",
             revocation_status as "OCSP State",
             Issue_Detail as "Failure / Revocation Reason",
-            count as "Event Count",
+            count as "Total Probes Evaluated",
             last_seen as "Last Detected"
           </query>
           <earliest>-24h@h</earliest>

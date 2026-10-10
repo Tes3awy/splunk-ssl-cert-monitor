@@ -43,7 +43,7 @@
     },
     "dependencies": {
         "TA-cert-monitor": {
-            "version": "<=2.1.4",
+            "version": "2.1.8",
             "optional": true
         }
     },
@@ -52,7 +52,7 @@
     "incompatibleApps": null,
     "platformRequirements": {
         "splunk": {
-            "Enterprise": "<10"
+            "Enterprise": ">10"
         }
     },
     "supportedDeployments": [
