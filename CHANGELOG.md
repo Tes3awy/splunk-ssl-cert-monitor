@@ -13,10 +13,14 @@ All notable changes to this project will be documented in this file.
 
 - *(app)* Adjust platform requirements and sanitize app.conf for slim
 
+- *(app)* Restore package id to splunk-cert-monitor-app for splunkbase compatibility
+
 
 ### Documentation
 
 - *(changelog)* Update CHANGELOG.md for v2.1.8 [skip ci]
+
+- *(changelog)* Update CHANGELOG.md for v2.2.0 [skip ci]
 
 - *(changelog)* Update CHANGELOG.md for v2.2.0 [skip ci]
 
